@@ -1,5 +1,6 @@
 import argparse
 import logging
+import multiprocessing
 import os
 
 import numpy as np
@@ -110,7 +111,7 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, params):
     loss_avg = utils.RunningAverage()
 
     # Use tqdm for progress bar
-    with tqdm(total=len(dataloader)) as t:
+    with tqdm(total=len(dataloader), unit="batch") as t:
         for i, batch in enumerate(dataloader):
 
             # Unpack batch, optionally get to cuda TODO
@@ -233,7 +234,12 @@ if __name__ == '__main__':
     if "ignore_index" not in params.dict:
         params.ignore_index = -100
 
-    # Max number of worker-threads
+    # Set number of working threads
+    # https://jdhao.github.io/2020/07/06/pytorch_set_num_threads/
+    # https://github.com/pytorch/pytorch/issues/7087
+    torch.set_num_threads(multiprocessing.cpu_count())
+    os.environ['OMP_NUM_THREADS'] = multiprocessing.cpu_count()
+    os.environ['MKL_NUM_THREADS'] = multiprocessing.cpu_count()
 
     # Seed everything
     torch.manual_seed(230)
@@ -251,6 +257,7 @@ if __name__ == '__main__':
     build_dataset = datasets["build"]
 
     train_set, val_set = torch.utils.data.random_split(build_dataset, [len(build_dataset)-100, 100])
+    # train_set, val_set, others = torch.utils.data.random_split(build_dataset, [1000, 100, len(build_dataset)-1100])
     train_sampler = dataset.BucketSampler([route.num_stops for route in train_set], batch_size=params.batch_size, shuffle=True)
     val_sampler = dataset.BucketSampler([route.num_stops for route in val_set], batch_size=params.batch_size, shuffle=True)
     collate_fn = dataset.get_collate_fn(stage="build", params=params)
