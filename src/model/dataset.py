@@ -355,7 +355,7 @@ class RoutingDataset(Dataset):
                 letter_idx = mapping[zone_1]
                 zone_1_one_hot_embedding[letter_idx] = 1
             except KeyError:
-                print(zone_list)
+                pass
 
         return np.concatenate((zone_1_one_hot_embedding, [zone_2]))
 

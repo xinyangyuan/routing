@@ -8,6 +8,6 @@
     "router_embbed_dim": 128,
     "factor": 0.5,
     "patience": 50,
-    "save_summary_steps": 100,
+    "save_summary_steps": 5,
     "num_workers": 4
 }

@@ -12,9 +12,9 @@ import model.net as net
 import model.dataset as dataset
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--data_dir', default='../data',
+parser.add_argument('--data_dir', default='data',
                     help="Directory containing the dataset")
-parser.add_argument('--model_dir', default='../experiments/base_model',
+parser.add_argument('--model_dir', default='experiments/base_model',
                     help="Directory containing params.json")
 parser.add_argument('--restore_file', default=None,
                     help="Optional, name of the file in --model_dir containing weights to reload before \
@@ -229,6 +229,10 @@ if __name__ == '__main__':
     # Use GPU if available
     params.cuda = torch.cuda.is_available()
 
+    # Set default ignore_index
+    if "ignore_index" not in params.dict:
+        params.ignore_index = -100
+
     # Max number of worker-threads
 
     # Seed everything
@@ -240,7 +244,7 @@ if __name__ == '__main__':
     utils.set_logger(os.path.join(args.model_dir, 'train.log'))
 
     # Create the input data pipeline
-    logging.info("Loading the datasets...")
+    logging.info(f"Loading the datasets from {args.model_dir}...")
 
     # Creating dataloaders
     datasets = dataset.get_dataset(["build"], args.data_dir)
@@ -252,7 +256,7 @@ if __name__ == '__main__':
     collate_fn = dataset.get_collate_fn(stage="build", params=params)
 
     train_loader = dataset.DataLoader(train_set, batch_sampler=train_sampler, collate_fn=collate_fn)
-    val_loader = dataset.DataLoader(train_set, batch_sampler=val_sampler, collate_fn=collate_fn)
+    val_loader = dataset.DataLoader(val_set, batch_sampler=val_sampler, collate_fn=collate_fn)
     logging.info("- done.")
 
     # Define the model, optimizer, and scheduler
@@ -275,5 +279,5 @@ if __name__ == '__main__':
         params = params,
         model_dir = args.model_dir,
         train_dataloader = train_loader,
-        val_loader = val_loader,
+        val_dataloader = val_loader,
     )

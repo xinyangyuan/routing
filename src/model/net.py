@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.types import Number
 
-from . import SelfAttention, Router
+from model.layer import SelfAttention, Router
 
 class RouteNet(nn.Module):
     """ RouteNet"""
