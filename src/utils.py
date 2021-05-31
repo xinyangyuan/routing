@@ -51,11 +51,16 @@ class RunningAverage():
         self.steps = 0
         self.total = 0
     
-    def update(self, val):
+    def update(self, val: float):
         self.total += val
         self.steps += 1
     
-    def __call__(self):
+    def __call__(self) -> float:
+        
+        # Avoid calling prior to update (zero-division)
+        if float(self.steps) == 0:
+            return 0
+        
         return self.total/float(self.steps)
         
     

@@ -2,3 +2,8 @@
 2021-06-01 00:32:32,210:INFO: - done.
 2021-06-01 00:32:32,262:INFO: Starting training for 500 epoch(s)
 2021-06-01 00:32:32,262:INFO: Epoch 1/500
+2021-06-01 01:28:34,004:INFO: Loading the datasets from experiments/base_model...
+2021-06-01 01:32:55,861:INFO: - done.
+2021-06-01 01:32:55,945:INFO: Starting training for 500 epoch(s)
+2021-06-01 01:32:55,945:INFO: Epoch 1/500
+2021-06-01 02:20:21,170:INFO: Loading the datasets from experiments/base_model...
