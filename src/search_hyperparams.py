@@ -6,10 +6,12 @@ import sys
 import utils
 
 PYTHON = sys.executable
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 parser = argparse.ArgumentParser()
-parser.add_argument('--data_dir', default='data',
+parser.add_argument('--data_dir', default=os.path.join(BASE_DIR, 'data'),
                     help="Directory containing the dataset")
-parser.add_argument('--parent_dir', default='experiments/learning_rate',
+parser.add_argument('--parent_dir', default=os.path.join(BASE_DIR,'experiments/learning_rate'),
                     help="Directory containing params.json")
 
 

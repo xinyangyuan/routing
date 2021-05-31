@@ -12,10 +12,12 @@ import utils
 import model.net as net
 import model.dataset as dataset
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 parser = argparse.ArgumentParser()
-parser.add_argument('--data_dir', default='data',
+parser.add_argument('--data_dir', default=os.path.join(BASE_DIR, 'data'),
                     help="Directory containing the dataset")
-parser.add_argument('--model_dir', default='experiments/base_model',
+parser.add_argument('--model_dir', default=os.path.join(BASE_DIR, 'experiments/base_model'),
                     help="Directory containing params.json")
 parser.add_argument('--restore_file', default=None,
                     help="Optional, name of the file in --model_dir containing weights to reload before \
@@ -250,7 +252,7 @@ if __name__ == '__main__':
     utils.set_logger(os.path.join(args.model_dir, 'train.log'))
 
     # Create the input data pipeline
-    logging.info(f"Loading the datasets from {args.model_dir}...")
+    logging.info(f"Loading the datasets from {args.data_dir}...")
 
     # Creating dataloaders
     datasets = dataset.get_dataset(["build"], args.data_dir)
@@ -267,6 +269,7 @@ if __name__ == '__main__':
     logging.info("- done.")
 
     # Define the model, optimizer, and scheduler
+    logging.info(f"Building model using params from {args.model_dir}")
     model = net.RouteNet(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers)
     optimizer = optim.Adam(model.parameters(), lr=params.learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=params.factor, patience=params.patience)
@@ -276,7 +279,7 @@ if __name__ == '__main__':
     metrics = net.metrics
 
     # Train the model
-    logging.info("Starting training for {} epoch(s)".format(params.num_epochs))
+    logging.info(f"Starting training for {params.num_epochs} epoch(s)")
     train_loop(
         model = model,
         optimizer = optimizer,
