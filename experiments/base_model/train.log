@@ -1,9 +1,24 @@
-2021-06-01 00:28:36,044:INFO: Loading the datasets from experiments/base_model...
-2021-06-01 00:32:32,210:INFO: - done.
-2021-06-01 00:32:32,262:INFO: Starting training for 500 epoch(s)
-2021-06-01 00:32:32,262:INFO: Epoch 1/500
-2021-06-01 01:28:34,004:INFO: Loading the datasets from experiments/base_model...
-2021-06-01 01:32:55,861:INFO: - done.
-2021-06-01 01:32:55,945:INFO: Starting training for 500 epoch(s)
-2021-06-01 01:32:55,945:INFO: Epoch 1/500
-2021-06-01 02:20:21,170:INFO: Loading the datasets from experiments/base_model...
+2021-06-01 19:18:44,766:INFO: Loading the datasets from /Users/yuanxinyang/Desktop/routing/data...
+2021-06-01 19:19:54,856:INFO: - done.
+2021-06-01 19:19:54,858:INFO: Building model using params from /Users/yuanxinyang/Desktop/routing/experiments/base_model
+2021-06-01 19:19:54,879:INFO: Starting training for 500 epoch(s)
+2021-06-01 19:19:54,879:INFO: Epoch 1/500
+2021-06-01 19:20:10,121:INFO: - Train metrics: accuracy: 0.006 ; loss: 5.220
+2021-06-01 19:20:20,555:INFO: - Eval metrics : accuracy: 0.006 ; loss: 5.047
+2021-06-01 19:20:20,940:INFO: - Found new best accuracy
+2021-06-01 19:20:20,982:INFO: Epoch 2/500
+2021-06-01 19:20:33,715:INFO: - Train metrics: accuracy: 0.003 ; loss: 5.032
+2021-06-01 19:20:43,851:INFO: - Eval metrics : accuracy: 0.006 ; loss: 5.030
+2021-06-01 19:20:44,275:INFO: Epoch 3/500
+2021-06-01 19:20:58,635:INFO: - Train metrics: accuracy: 0.012 ; loss: 4.900
+2021-06-01 19:21:09,699:INFO: - Eval metrics : accuracy: 0.007 ; loss: 5.028
+2021-06-01 19:21:10,028:INFO: - Found new best accuracy
+2021-06-01 19:21:10,046:INFO: Epoch 4/500
+2021-06-01 19:21:22,778:INFO: - Train metrics: accuracy: 0.009 ; loss: 5.150
+2021-06-01 19:21:30,854:INFO: - Eval metrics : accuracy: 0.009 ; loss: 5.027
+2021-06-01 19:21:31,043:INFO: - Found new best accuracy
+2021-06-01 19:21:31,060:INFO: Epoch 5/500
+2021-06-01 19:21:43,250:INFO: - Train metrics: accuracy: 0.011 ; loss: 4.769
+2021-06-01 19:21:53,073:INFO: - Eval metrics : accuracy: 0.009 ; loss: 5.026
+2021-06-01 19:21:53,140:INFO: - Found new best accuracy
+2021-06-01 19:21:53,163:INFO: Epoch 6/500

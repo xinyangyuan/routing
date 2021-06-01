@@ -4,10 +4,9 @@
     "batch_size": 4,
     "num_epochs": 500,
     "dropout_rate":0.1, 
-    "num_routers": 16,
+    "num_routers": 8,
     "router_embbed_dim": 128,
     "factor": 0.5,
     "patience": 50,
-    "save_summary_steps": 5,
-    "num_workers": 4
+    "save_summary_steps": 2
 }

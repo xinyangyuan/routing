@@ -1,4 +1,4 @@
-.PHONY: data-wget data-cli
+.PHONY: data-wget data-cli tensorboard
 
 ifneq ($(shell which rc-cli), )
 data: data-cli
@@ -14,3 +14,6 @@ data-wget:
 
 data-cli:
 	rc-cli reset-data
+
+tensorboard:
+	tensorboard --logdir=experiments

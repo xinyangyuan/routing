@@ -6,6 +6,7 @@ import os
 import numpy as np
 import torch
 import torch.optim as optim
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 import utils
@@ -23,7 +24,7 @@ parser.add_argument('--restore_file', default=None,
                     help="Optional, name of the file in --model_dir containing weights to reload before \
                     training")  # 'best' or 'train'
 
-def train_loop(model, optimizer, scheduler, criterion, metrics, params, model_dir, train_dataloader, val_dataloader=None, restore_file=None, save_file=True):
+def train_loop(model, optimizer, scheduler, criterion, metrics, params, model_dir, train_dataloader, writer, val_dataloader=None, restore_file=None, save_file=True):
     
     """Train the model.
     Args:
@@ -52,13 +53,24 @@ def train_loop(model, optimizer, scheduler, criterion, metrics, params, model_di
         logging.info(f"Epoch {epoch + 1}/{params.num_epochs}")
 
         # Train for one epoch (one full pass over the training set)
-        train_metrics = train(model, optimizer, scheduler, criterion, train_dataloader, metrics, params)
+        train_metrics = train(model, optimizer, scheduler, criterion, train_dataloader, metrics, writer, params)
 
         # Evaluate for one epoch on validation set
         if val_dataloader is not None:
+            # validation set metrics
             val_metrics = evaluate(model, criterion, val_dataloader, metrics, params)
             val_acc = val_metrics['accuracy']
             is_best = val_acc >= best_val_acc
+
+            # write to tensorboard
+            # issue with hparams https://github.com/pytorch/pytorch/issues/32651
+            writer.add_scalar('Validation loss', val_metrics['loss'], epoch * len(train_dataloader))
+            writer.add_scalar('Validation acc', val_metrics['accuracy'], epoch * len(train_dataloader))
+            # writer.add_hparams(
+            #     {'lr': params.learning_rate,"batch_size": params.batch_size},
+            #     {'hparam/accuracy': val_metrics['accuracy'], 'hparam/loss': val_metrics['loss']}
+            # )
+
         else:
             train_acc = train_metrics['accuracy']
             is_best = train_acc >= best_val_acc
@@ -90,7 +102,7 @@ def train_loop(model, optimizer, scheduler, criterion, metrics, params, model_di
             )
 
 
-def train(model, optimizer, scheduler, criterion, dataloader, metrics, params):
+def train(model, optimizer, scheduler, criterion, dataloader, metrics, writer, params):
     """Train the model for one epoch (num_steps in batch model on `num_steps` batches)
     Args:
         model: (torch.nn.Module) the neural network
@@ -110,6 +122,7 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, params):
 
     # Summary for current training loop and a running average object for loss
     summ = []
+    epoch_counter = utils.Counter('epoch')
     loss_avg = utils.RunningAverage()
 
     # Use tqdm for progress bar
@@ -153,8 +166,8 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, params):
                 summ.append(summary)
 
                 # write to tensorboard
-                # writer.add_scalar("Training loss", loss, global_step=step)
-                # step += 1
+                writer.add_scalar('Training loss', summary['loss'], (epoch_counter()-1) * len(dataloader) + i)
+                writer.add_scalar('Training acc', summary['accuracy'], (epoch_counter()-1) * len(dataloader) + i)
 
             # Update the average loss
             loss_avg.update(loss.item())
@@ -251,6 +264,9 @@ if __name__ == '__main__':
     # Set the logger
     utils.set_logger(os.path.join(args.model_dir, 'train.log'))
 
+    # Set tensorboard writer
+    writer = SummaryWriter(os.path.join(args.model_dir, 'tb'))
+
     # Create the input data pipeline
     logging.info(f"Loading the datasets from {args.data_dir}...")
 
@@ -258,8 +274,8 @@ if __name__ == '__main__':
     datasets = dataset.get_dataset(["build"], args.data_dir)
     build_dataset = datasets["build"]
 
-    train_set, val_set = torch.utils.data.random_split(build_dataset, [len(build_dataset)-100, 100])
-    # train_set, val_set, others = torch.utils.data.random_split(build_dataset, [1000, 100, len(build_dataset)-1100])
+    # train_set, val_set = torch.utils.data.random_split(build_dataset, [len(build_dataset)-100, 100])
+    train_set, val_set, others = torch.utils.data.random_split(build_dataset, [10, 10, len(build_dataset)-20])
     train_sampler = dataset.BucketSampler([route.num_stops for route in train_set], batch_size=params.batch_size, shuffle=True)
     val_sampler = dataset.BucketSampler([route.num_stops for route in val_set], batch_size=params.batch_size, shuffle=True)
     collate_fn = dataset.get_collate_fn(stage="build", params=params)
@@ -270,11 +286,12 @@ if __name__ == '__main__':
 
     # Define the model, optimizer, and scheduler
     logging.info(f"Building model using params from {args.model_dir}")
-    model = net.RouteNet(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers)
+    # model = net.RouteNet(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers)
+    model = net.RouteNetV2(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers)
     optimizer = optim.Adam(model.parameters(), lr=params.learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=params.factor, patience=params.patience)
 
-    # fetch loss function and metrics
+    # Define loss function and metrics
     criterion =  torch.nn.NLLLoss(ignore_index=params.ignore_index)
     metrics = net.metrics
 
@@ -288,6 +305,10 @@ if __name__ == '__main__':
         metrics = metrics,
         params = params,
         model_dir = args.model_dir,
+        writer=writer,
         train_dataloader = train_loader,
         val_dataloader = val_loader,
     )
+
+    # Close tensorboard writer
+    writer.close()

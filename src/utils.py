@@ -1,3 +1,4 @@
+from collections import defaultdict
 import json
 import logging
 import os
@@ -62,7 +63,32 @@ class RunningAverage():
             return 0
         
         return self.total/float(self.steps)
+
+class Counter():
+    """A simple class that maintains a global counter (start from 1)
+    
+    Example:
+    ```
+    epoch = Counter('epoch')
+    epoch() = 1
+
+    epoch_2 = Counter('epoch')
+    epoch_2() = 2
+    ```
+    """
+
+    counters = defaultdict(int)
+
+    def __init__(self, name: str):
+        self.name = name
+        self.counters[name] += 1
         
+
+    def update(self, val: int=1):
+        self.counters[self.name] += val
+    
+    def __call__(self) -> float:        
+        return self.counters[self.name]
     
 def set_logger(log_path):
     """Set the logger to log info in terminal and file `log_path`.
@@ -138,3 +164,13 @@ def load_checkpoint(checkpoint, model, optimizer=None):
         optimizer.load_state_dict(checkpoint['optim_dict'])
 
     return checkpoint
+
+if __name__ == '__main__':
+    # for i in range(10):
+    #     epoch_counter = Counter('epoch')
+    #     print(epoch_counter())
+
+    epoch = Counter('epoch')
+    print(epoch())
+    epoch_2 = Counter('epoch')
+    print(epoch_2())

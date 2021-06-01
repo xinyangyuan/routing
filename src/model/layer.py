@@ -72,6 +72,44 @@ class Convolution(nn.Module):
 #     def forward(self, x):
 #         return self.summary(x)
 
+class Mixing(nn.Module):
+    """Fourier-mixing layer"""
+    def __init__(self, in_dim, mixing_dim=-1):
+        super(Mixing, self).__init__()
+        self.in_dim = in_dim
+        self.gamma = 1  # self.gamma = nn.Parameter(torch.zeros(1))
+        self.norm = nn.InstanceNorm2d(in_dim, affine=True)
+        
+        if mixing_dim in [-1, 3, -2, 2]:
+            self.mixing_dim = mixing_dim
+        else:
+            raise ValueError("mixing_dim must be (2 or 3), assumed 4D input tensor (batch_m, C, h, w)")
+
+    def forward(self, x, mask):
+        # Normalization across channels
+        x = self.norm(x)
+        
+        # Zero padding using mask
+        if mask is not None:
+            x = x.masked_fill(mask.unsqueeze(1) == 0, 0)
+
+        return torch.fft.fft(x, dim=self.mixing_dim).real
+
+class Mixer(nn.Module):
+    """ Mixer block"""
+    def __init__(self, in_dim, summary_dim=-1, dropout=0):
+        super(Mixer, self).__init__()
+        self.channel_in = in_dim
+        self.mixing = Mixing(in_dim, summary_dim)
+        self.convolution = Convolution(in_dim)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, mask):
+        out = self.mixing(x, mask)
+        out = self.convolution(out)
+        out = self.dropout(out)
+        return out
+
 class SelfAttention(nn.Module):
     """ Self-attention layer"""
     def __init__(self, in_dim, summary_dim=-1):
