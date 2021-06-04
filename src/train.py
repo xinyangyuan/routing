@@ -274,8 +274,8 @@ if __name__ == '__main__':
     datasets = dataset.get_dataset(["build"], args.data_dir)
     build_dataset = datasets["build"]
 
-    # train_set, val_set = torch.utils.data.random_split(build_dataset, [len(build_dataset)-100, 100])
-    train_set, val_set, others = torch.utils.data.random_split(build_dataset, [10, 10, len(build_dataset)-20])
+    train_set, val_set = torch.utils.data.random_split(build_dataset, [len(build_dataset)-100, 100])
+    # train_set, val_set, others = torch.utils.data.random_split(build_dataset, [10, 10, len(build_dataset)-20])
     train_sampler = dataset.BucketSampler([route.num_stops for route in train_set], batch_size=params.batch_size, shuffle=True)
     val_sampler = dataset.BucketSampler([route.num_stops for route in val_set], batch_size=params.batch_size, shuffle=True)
     collate_fn = dataset.get_collate_fn(stage="build", params=params)

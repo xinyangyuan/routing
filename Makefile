@@ -2,10 +2,10 @@
 
 ifneq ($(shell which rc-cli), )
 data: data-cli
-else ifneq ($(shell where rc-cli), )
-data: data-cli
+# else ifneq ($(shell where rc-cli), )
+# data: data-cli
 else
-data: data-cli
+data: data-wget
 endif
 
 data-wget:
