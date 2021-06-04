@@ -130,10 +130,10 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, writer, p
         for i, batch in enumerate(dataloader):
 
             # Unpack batch, optionally get to cuda TODO
-            inputs = batch['inputs']       # (batch_m, max_num_stops, max_num_stops, num_1d_features + num_2d_features)
-            input_0ds = batch['input_0ds'] # (batch_m, num_0d_features)
-            targets = batch['targets']     # (batch_m, max_num_stops)
-            masks = batch['masks']         # (batch_m, max_num_stops, max_num_stops)
+            inputs = batch['inputs'].to(params.device)       # (batch_m, max_num_stops, max_num_stops, num_1d_features + num_2d_features)
+            input_0ds = batch['input_0ds'].to(params.device) # (batch_m, num_0d_features)
+            targets = batch['targets'].to(params.device)     # (batch_m, max_num_stops)
+            masks = batch['masks'].to(params.device)         # (batch_m, max_num_stops, max_num_stops)
 
             # Forward pass
             outputs = model(inputs, masks) # (batch_m, max_num_stops, max_num_stops)
@@ -209,10 +209,10 @@ def evaluate(model, criterion, dataloader, metrics, params):
     for batch in dataloader:
 
         # Unpack batch, optionally get to cuda TODO
-        inputs = batch['inputs']       # (batch_m, max_num_stops, max_num_stops, num_1d_features + num_2d_features)
-        input_0ds = batch['input_0ds'] # (batch_m, num_0d_features)
-        targets = batch['targets']     # (batch_m, max_num_stops)
-        masks = batch['masks']         # (batch_m, max_num_stops, max_num_stops)
+        inputs = batch['inputs'].to(params.device)       # (batch_m, max_num_stops, max_num_stops, num_1d_features + num_2d_features)
+        input_0ds = batch['input_0ds'].to(params.device) # (batch_m, num_0d_features)
+        targets = batch['targets'].to(params.device)     # (batch_m, max_num_stops)
+        masks = batch['masks'].to(params.device)         # (batch_m, max_num_stops, max_num_stops)
 
         # Compute model output
         outputs = model(inputs, masks) # (batch_m, max_num_stops, max_num_stops)
@@ -244,6 +244,7 @@ if __name__ == '__main__':
 
     # Use GPU if available
     params.cuda = torch.cuda.is_available()
+    params.device = torch.device("cuda" if params.cuda  else "cpu")
 
     # Set default ignore_index
     if "ignore_index" not in params.dict:
@@ -286,8 +287,8 @@ if __name__ == '__main__':
 
     # Define the model, optimizer, and scheduler
     logging.info(f"Building model using params from {args.model_dir}")
-    # model = net.RouteNet(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers)
-    model = net.RouteNetV2(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers)
+    model = net.RouteNet(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers).to(params.device)
+    # model = net.RouteNetV2(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers).to(params.device)
     optimizer = optim.Adam(model.parameters(), lr=params.learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=params.factor, patience=params.patience)
 
