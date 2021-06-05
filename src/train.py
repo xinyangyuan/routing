@@ -12,6 +12,7 @@ from tqdm import tqdm
 import utils
 import model.net as net
 import model.dataset as dataset
+import model.loss as loss
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -275,8 +276,8 @@ if __name__ == '__main__':
     datasets = dataset.get_dataset(["build"], args.data_dir)
     build_dataset = datasets["build"]
 
-    train_set, val_set = torch.utils.data.random_split(build_dataset, [len(build_dataset)-100, 100])
-    # train_set, val_set, others = torch.utils.data.random_split(build_dataset, [10, 10, len(build_dataset)-20])
+    # train_set, val_set = torch.utils.data.random_split(build_dataset, [len(build_dataset)-200, 100])
+    train_set, val_set, others = torch.utils.data.random_split(build_dataset, [2000, 100, len(build_dataset)-2000-100])
     train_sampler = dataset.BucketSampler([route.num_stops for route in train_set], batch_size=params.batch_size, shuffle=True)
     val_sampler = dataset.BucketSampler([route.num_stops for route in val_set], batch_size=params.batch_size, shuffle=True)
     collate_fn = dataset.get_collate_fn(stage="build", params=params)
@@ -293,7 +294,8 @@ if __name__ == '__main__':
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=params.factor, patience=params.patience)
 
     # Define loss function and metrics
-    criterion =  torch.nn.NLLLoss(ignore_index=params.ignore_index)
+    # criterion =  torch.nn.NLLLoss(ignore_index=params.ignore_index)
+    criterion =  loss.LabelSmoothingNLLLoss(ignore_index=params.ignore_index)
     metrics = net.metrics
 
     # Train the model

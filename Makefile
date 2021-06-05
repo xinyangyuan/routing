@@ -16,4 +16,4 @@ data-cli:
 	rc-cli reset-data
 
 tensorboard:
-	tensorboard --logdir=experiments
+	tensorboard --logdir=experiments --port=8888
