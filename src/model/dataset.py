@@ -127,10 +127,14 @@ class RoutingDataset(Dataset):
 
         # prepare actual sequence
         if self.stage == "build":
-            sequence_map = self.actual_sequences[route_id]["actual"] # {str -> int}
-            sequence = {stop_idx : stop_id for stop_id, stop_idx in sequence_map.items()} # swap sequence_map {int -> str}
-            target = np.array([stop_idx + 1 if stop_idx < (len(sequence_map)-1) else 0 for stop_idx in sequence_map.values()]) # np.ndarray (num_stops, )
-        
+            sequence_map = self.actual_sequences[route_id]["actual"] # {str -> int} stop_id string -> index in actual sequence
+            sequence = {stop_idx : stop_id for stop_id, stop_idx in sequence_map.items()} # {int -> str} index in actual sequence -> stop_id string
+            stop_ids =  list(sequence_map.keys()) # str[] list of stop_id string in same order as input
+            target = np.array([
+                stop_ids.index(sequence[stop_idx+1]) if stop_idx < (len(sequence_map)-1) else stop_ids.index(sequence[0]) 
+                for stop_idx in sequence_map.values()
+            ]) # np.ndarray (num_stops, ) 
+
         # training inputs and labels
         input = self.one_to_two_d_feature(input_1d)
         input = np.dstack((
