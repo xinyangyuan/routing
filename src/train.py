@@ -137,7 +137,7 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, writer, p
             masks = batch['masks'].to(params.device)         # (batch_m, max_num_stops, max_num_stops)
 
             # Forward pass
-            outputs = model(inputs, masks) # (batch_m, max_num_stops, max_num_stops)
+            outputs = model(inputs, input_0ds, masks) # (batch_m, max_num_stops, max_num_stops)
 
             # Compute loss
             loss = criterion(outputs.reshape(-1, outputs.shape[2]), targets.reshape(-1))
@@ -216,7 +216,7 @@ def evaluate(model, criterion, dataloader, metrics, params):
         masks = batch['masks'].to(params.device)         # (batch_m, max_num_stops, max_num_stops)
 
         # Compute model output
-        outputs = model(inputs, masks) # (batch_m, max_num_stops, max_num_stops)
+        outputs = model(inputs, input_0ds, masks) # (batch_m, max_num_stops, max_num_stops)
         loss = criterion(outputs.reshape(-1, outputs.shape[2]), targets.reshape(-1))
             
         # Move to cpu
@@ -276,8 +276,9 @@ if __name__ == '__main__':
     datasets = dataset.get_dataset(["build"], args.data_dir)
     build_dataset = datasets["build"]
 
-    # train_set, val_set = torch.utils.data.random_split(build_dataset, [len(build_dataset)-200, 100])
-    train_set, val_set, others = torch.utils.data.random_split(build_dataset, [2000, 100, len(build_dataset)-2000-100])
+    # train_set, val_set = torch.utils.data.random_split(build_dataset, [len(build_dataset)-200, 200])
+    # train_set, val_set, others = torch.utils.data.random_split(build_dataset, [2000, 100, len(build_dataset)-2000-100])
+    train_set, val_set, others = torch.utils.data.random_split(build_dataset, [20, 10, len(build_dataset)-20-10])
     train_sampler = dataset.BucketSampler([route.num_stops for route in train_set], batch_size=params.batch_size, shuffle=True)
     val_sampler = dataset.BucketSampler([route.num_stops for route in val_set], batch_size=params.batch_size, shuffle=True)
     collate_fn = dataset.get_collate_fn(stage="build", params=params)
@@ -288,8 +289,9 @@ if __name__ == '__main__':
 
     # Define the model, optimizer, and scheduler
     logging.info(f"Building model using params from {args.model_dir}")
-    model = net.RouteNet(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers).to(params.device)
-    # model = net.RouteNetV2(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers).to(params.device)
+    # model = net.RouteNet(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers, dropout=params.dropout_rate).to(params.device)
+    # model = net.RouteNetV2(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers, dropout=params.dropout_rate).to(params.device)
+    model = net.RouteNetV3(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers, dropout=params.dropout_rate).to(params.device)
     optimizer = optim.Adam(model.parameters(), lr=params.learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=params.factor, patience=params.patience)
 

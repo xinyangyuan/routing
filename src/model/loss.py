@@ -57,3 +57,23 @@ class LabelSmoothingNLLLoss(torch.nn.Module):
     @staticmethod
     def reduce_loss(loss, reduction='mean'):
         return loss.mean() if reduction=='mean' else loss.sum() if reduction=='sum' else loss
+
+if __name__ == "__main__":
+    
+    loss = LabelSmoothingNLLLoss(ignore_index=-100)
+    outputs = F.log_softmax(torch.rand(4, 200, 200), dim=-1)
+    targets = torch.randint(200, (4, 200))
+
+    outputs = outputs.reshape(-1, outputs.shape[2])
+    targets = targets.reshape(-1)
+
+    print(loss(outputs, targets).item())
+    
+    M = torch.randn(4,4)
+
+    print(M.shape)
+
+    idx_mask = torch.Tensor([1,3,-100,-100])
+
+    print(M)
+    print(M[idx_mask != -100])

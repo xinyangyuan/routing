@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 class MaskedInstanceNorm2d(nn.Module):
     """Masked InstanceNorm2d"""
@@ -53,6 +54,52 @@ class Convolution(nn.Module):
     def forward(self, x):
         out = self.conv(x)
         return self.gamma*out + x
+
+class InputFusion(nn.Module):
+    """ Input fusion layer"""
+    def __init__(self, in_dim:int, in_dim_0:int, router_embbed_dim:int, aux_embbed_dim:int=10):
+        """
+        Args :
+            in_dim (int): input feature maps dimension (num_1d_features + num_2d_features)
+            in_dim_0 (int): auxilary input dimension (num_0d_features)
+            router_embbed_dim (int): total number of output channels 
+            aux_embbed_dim (int): number of output channels of adaptive kernel
+        """
+        super(InputFusion, self).__init__()
+        self.channel_in = in_dim
+        self.channel_in_0 = in_dim_0
+        self.channel_out_0 = aux_embbed_dim
+        self.input = nn.Conv2d(in_dim, router_embbed_dim - aux_embbed_dim, kernel_size=1)
+        self.input_0 = nn.Sequential(
+            nn.Linear(in_dim_0, in_dim*aux_embbed_dim//2, bias=False),
+            nn.ReLU(),
+            nn.BatchNorm1d(in_dim*aux_embbed_dim//2),
+            nn.Linear(in_dim*aux_embbed_dim//2, in_dim*aux_embbed_dim)
+        )
+
+    def forward(self, x, x_0):
+        """
+        Args :
+            x : input feature maps (batch_m, in_dim, n, n) (n == max_num_stops)
+            x_0: auxilary route-level input (batch_m, num_0d_features)
+        """
+
+        batch_m, C, height, width = x.size() # height==width==n
+        
+        # Adaptive kernel using route-level input (auxilary information)
+        # https://discuss.pytorch.org/t/setting-custom-kernel-for-cnn-in-pytorch/27176/2
+        kernels = self.input_0(x_0) # (m_batch, in_dim * aux_embbed_dim_C) 
+        kernels = kernels.reshape(-1, self.channel_in, 1, 1) # (in_dim * aux_embbed_dim_C, in_dim, 1, 1) =:= (out_C, in_C//group, kH, kW)
+
+        # (1) 2d-feature maps from input directly (out_C = router_embbed_dim - aux_embbed_dim)
+        out = self.input(x)  # (batch_m, in_dim, n, n) -> (batch_m, router_embbed_dim - aux_embbed_dim, n, n)
+
+        # (2) 2d-feature maps from aux-input using adaptive kernels (out_C = aux_embbed_dim)
+        x = x.reshape(1, -1, height, width) # (1, batch_m * in_dim, n, n) =:= (batch, in_C, iH, iW)
+        out_0 = F.conv2d(x, kernels, groups=batch_m)
+        out_0 = out_0.reshape(batch_m, self.channel_out_0, height, width)
+        
+        return torch.cat((out, out_0), 1)
 
 # class Summary(nn.Module):
 #     """ Summary layer """
