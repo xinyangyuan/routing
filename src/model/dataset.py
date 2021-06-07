@@ -105,12 +105,12 @@ class RoutingDataset(Dataset):
 
         # inputs/features
         input_0d = np.array((
-            # route.station_code,     # TODO
+            *self.hash_str_to_list(route.station_code), # list[int] -> int,int,int,int
             route.depature_timestamp_utc,
             route.executor_capacity_cm3,
-            route.route_score_High,   # TODO
-            route.route_score_Medium, # TODO
-            route.route_score_Low,    # TODO
+            int(route.route_score == "High"),   # int
+            int(route.route_score == "Medium"), # int
+            int(route.route_score == "Low"),    # int
         )) # (num_0d_features, )
 
         input_1d = np.column_stack((
@@ -182,11 +182,12 @@ class RoutingDataset(Dataset):
         return [len(route_stops) for route_stops in self.route_df.stops]
     
     @staticmethod
-    def get_route_df(path: str) -> pd.DataFrame:
+    def get_route_df(path: str, transform:bool=True) -> pd.DataFrame:
         """
         Route dataframe
         Args:
             path (str): Directory of route data json
+            transform (bool): Perform initial df tranform or not (default to True)
         Return:
             route_df (pd.Dataframe): Dataframe of route data
         """
@@ -197,23 +198,22 @@ class RoutingDataset(Dataset):
             "date_YYYY_MM_DD", 
             "departure_time_utc", 
             "executor_capacity_cm3", 
-            "route_score", "stops", 
+            "route_score", 
+            "stops", 
             "depature_timestamp_utc",
-            "route_score_High",
-            "route_score_Low",
-            "route_score_Medium"
         }
 
         # read df from json (index oriented)
         route_df = pd.read_json(path, orient="index") 
 
         # transformation
-        # (1) add depature_timestamp_utc column (dtype=int64)
-        route_df['depature_timestamp_utc'] = pd.to_datetime(route_df.date_YYYY_MM_DD + ' ' + route_df.departure_time_utc )
-        route_df['depature_timestamp_utc'] = route_df['depature_timestamp_utc'].astype('int64')  // 10**9
-        # (2) add one-hot encoded columns of route_score {"route_score_High", "route_score_Medium", "route_socre_Low"}
-        route_score_one_hot = pd.get_dummies(route_df['route_score'], prefix="route_score") # TODO
-        route_df = route_df.join(route_score_one_hot)                                       # TODO
+        if transform:
+            # (1) add depature_timestamp_utc column (dtype=int64)
+            route_df['depature_timestamp_utc'] = pd.to_datetime(route_df.date_YYYY_MM_DD + ' ' + route_df.departure_time_utc )
+            route_df['depature_timestamp_utc'] = route_df['depature_timestamp_utc'].astype('int64')  // 10**9
+            # (2) add route_score col if not exist (apply-dataset does not contain route-score)
+            if "route_score" not in route_df:
+                route_df["route_score"] = "High" 
         
         return route_df
     
@@ -349,7 +349,10 @@ class RoutingDataset(Dataset):
         else:
             zone_list = zone_id.split("-")
             zone_1 = zone_list[0] # an alpha letter <str>
-            zone_2 = int(zone_list[1].split(".")[0]) if len(zone_list) == 2 else 0
+            try:
+                zone_2 = int(zone_list[1].split(".")[0]) if len(zone_list) == 2 else 0
+            except ValueError:
+                zone_2 = 0
         
         mapping = {letter: idx for idx, letter in enumerate('ABCDEFGHIJKLMNOPQRSTUVWXYZ')}
         zone_1_one_hot_embedding = np.zeros(len(mapping))
@@ -405,7 +408,24 @@ class RoutingDataset(Dataset):
         assert lat_matrix.shape == lng_matrix.shape == travel_distance.shape == (num_stops, num_stops)
 
         return lat_matrix, lng_matrix, travel_distance
+    
+    @staticmethod
+    def hash_str_to_list(str:str, length:int=4) -> typing.List[float]:
+        """
+        Hash a string input, e.g., station_code "DSE4", to a list of floats.
+        Args:
+            str (string): A string want to encode
+            length (int): The length of the output list.
+        Return:
+            out (List[float]): A list of hashed characters in string, if the str is shorter than length, pad with 0.
+        """
 
+        out = [0] * length
+
+        for i, character in enumerate(str):
+            out[i] = hash(character) % (2**16) / (2**16) # has range [0,1)
+
+        return out
 
 def get_collate_fn(stage="build", params=None):
     """
