@@ -294,8 +294,8 @@ if __name__ == '__main__':
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=params.factor, patience=params.patience)
 
     # Define loss function and metrics
-    # criterion =  torch.nn.NLLLoss(ignore_index=params.ignore_index)
-    criterion =  loss.LabelSmoothingNLLLoss(ignore_index=params.ignore_index)
+    criterion =  torch.nn.NLLLoss(ignore_index=params.ignore_index)
+    # criterion =  loss.LabelSmoothingNLLLoss(ignore_index=params.ignore_index)
     metrics = net.metrics
 
     # Train the model

@@ -1,4 +1,4 @@
-.PHONY: data-wget data-cli tensorboard
+.PHONY: data-wget data-cli tensorboard jupyter-notebook jupyter-lab run
 
 ifneq ($(shell which rc-cli), )
 data: data-cli
@@ -15,5 +15,20 @@ data-wget:
 data-cli:
 	rc-cli reset-data
 
+tb: tensorboard
+
 tensorboard:
 	tensorboard --logdir=experiments --port=8888 --bind_all
+
+jt: jupyter-notebook
+
+jupyter-notebook:
+	jupyter notebook --ip=0.0.0.0 --port=7777 --NotebookApp.token='' --no-browser &
+
+jl: jupyter-lab
+
+jupyter-lab:
+	jupyter lab --ip=0.0.0.0 --port=7777 --NotebookApp.token='' --no-browser &
+
+run:
+	python  src/train.py --model_dir experiments/base_model
