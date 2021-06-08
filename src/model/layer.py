@@ -1,3 +1,5 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -55,6 +57,58 @@ class Convolution(nn.Module):
         out = self.conv(x)
         return self.gamma*out + x
 
+class PositionEncoding(nn.Module):
+    """ Position encoding layer"""
+    def __init__(self, router_embbed_dim):
+        super(PositionEncoding, self).__init__()
+        self.router_embbed_dim = router_embbed_dim
+        self.embedd_dim = router_embbed_dim
+    
+    def forward(self, x):
+
+        """
+        Args :
+            x : input feature maps (batch_m, router_embbed_dim, n, n) (n == max_num_stops)
+        """
+        
+        _batch_m, _C, height, width = x.size()
+
+        pe = self.positionencoding2d(self.embedd_dim, height, width) # (router_embbed_dim, n, n)
+
+        return x + pe.unsqueeze(0)
+
+    @staticmethod
+    def positionencoding2d(embedd_dim:int, height:int, width:int) -> torch.Tensor:
+        """
+        Args :
+            embedd_dim (int): embedding dimension (multiple of 4)
+            height (int): height of position encoding
+            width (int): width of position encoding
+        Return :
+            pe (torch.Tensor): position embedding tensor (embedd_dim, height, width)
+        """
+        
+        assert embedd_dim % 4 == 0, f"PE (2*sin/cos) embedding dimension has to be multiple of four (got {embedd_dim})"
+
+        # Pre-allocation
+        pe = torch.zeros(embedd_dim, height, width)
+
+        # Each dimension use half of d_model
+        # https://github.com/wzlxjtu/PositionalEncoding2D
+        embedd_dim = int(embedd_dim / 2)
+        
+        div_term = torch.exp(torch.arange(0., embedd_dim, 2) * -(math.log(10000.0) / embedd_dim))
+        
+        pos_w = torch.arange(0., width).unsqueeze(1)
+        pos_h = torch.arange(0., height).unsqueeze(1)
+        
+        pe[0:embedd_dim:2, :, :] = torch.sin(pos_w * div_term).transpose(0, 1).unsqueeze(1).repeat(1, height, 1)
+        pe[1:embedd_dim:2, :, :] = torch.cos(pos_w * div_term).transpose(0, 1).unsqueeze(1).repeat(1, height, 1)
+        pe[embedd_dim::2, :, :] = torch.sin(pos_h * div_term).transpose(0, 1).unsqueeze(2).repeat(1, 1, width)
+        pe[embedd_dim + 1::2, :, :] = torch.cos(pos_h * div_term).transpose(0, 1).unsqueeze(2).repeat(1, 1, width)
+
+        return pe
+
 class InputFusion(nn.Module):
     """ Input fusion layer"""
     def __init__(self, in_dim:int, in_dim_0:int, router_embbed_dim:int, aux_embbed_dim:int=10):
@@ -69,6 +123,8 @@ class InputFusion(nn.Module):
         self.channel_in = in_dim
         self.channel_in_0 = in_dim_0
         self.channel_out_0 = aux_embbed_dim
+        self.pe = PositionEncoding(router_embbed_dim)
+        self.norm = nn.InstanceNorm2d(router_embbed_dim)
         self.input = nn.Conv2d(in_dim, router_embbed_dim - aux_embbed_dim, kernel_size=1)
         self.input_0 = nn.Sequential(
             nn.Linear(in_dim_0, in_dim*aux_embbed_dim//2, bias=False),
@@ -99,7 +155,7 @@ class InputFusion(nn.Module):
         out_0 = F.conv2d(x, kernels, groups=batch_m)
         out_0 = out_0.reshape(batch_m, self.channel_out_0, height, width)
         
-        return torch.cat((out, out_0), 1)
+        return self.pe(self.norm(torch.cat((out, out_0), 1)))
 
 # class Summary(nn.Module):
 #     """ Summary layer """
