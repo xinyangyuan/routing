@@ -278,7 +278,7 @@ if __name__ == '__main__':
 
     # train_set, val_set = torch.utils.data.random_split(build_dataset, [len(build_dataset)-200, 200])
     # train_set, val_set, others = torch.utils.data.random_split(build_dataset, [2000, 100, len(build_dataset)-2000-100])
-    train_set, val_set, others = torch.utils.data.random_split(build_dataset, [20, 10, len(build_dataset)-20-10])
+    train_set, val_set, others = torch.utils.data.random_split(build_dataset, [params.train, params.val, len(build_dataset)-params.train-params.val])
     train_sampler = dataset.BucketSampler([route.num_stops for route in train_set], batch_size=params.batch_size, shuffle=True)
     val_sampler = dataset.BucketSampler([route.num_stops for route in val_set], batch_size=params.batch_size, shuffle=True)
     collate_fn = dataset.get_collate_fn(stage="build", params=params)
@@ -293,7 +293,8 @@ if __name__ == '__main__':
     # model = net.RouteNetV2(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers, dropout=params.dropout_rate).to(params.device)
     model = net.RouteNetV3(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers, dropout=params.dropout_rate).to(params.device)
     optimizer = optim.Adam(model.parameters(), lr=params.learning_rate)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=params.factor, patience=params.patience)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=params.factor, patience=params.patience)
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=params.max_learning_rate, steps_per_epoch=len(train_loader), epochs=params.num_epochs, pct_start=params.anneal_start, div_factor=params.init_div_factor, final_div_factor=params.final_div_factor)
 
     # Define loss function and metrics
     # criterion =  torch.nn.NLLLoss(ignore_index=params.ignore_index)
