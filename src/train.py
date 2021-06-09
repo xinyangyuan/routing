@@ -184,6 +184,7 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, writer, p
 
     # Scheduler step (reduce on plateou scheduler)
     scheduler.step(loss_avg())
+    writer.add_scalar('Learning Rate', scheduler.get_lr()[0], (epoch_counter()-1) * len(dataloader) + i)
 
     return metrics_mean
 
