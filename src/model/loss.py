@@ -41,14 +41,18 @@ class LabelSmoothingNLLLoss(torch.nn.Module):
         """
         Args :
             output: (torch.Tensor) model prediction reshaped (batch_m * n, n) (n == max_num_stops)
-            target: (torch.Tensor) target labels (batch_m * n, 1)
+            target: (torch.Tensor) target labels (batch_m * n)
         """
 
         # Number of stops/classes
         c = output.size()[-1]
 
+        # Remove index
+        loss = -output[target != self.ignore_index] # remove padded starting-stops
+        loss[loss == 1e20] = 0 # remove masked stops from F.log_softmax()
+
         # Calculate H(u,p) and H(q,p)
-        loss = self.reduce_loss(-output.sum(dim=-1), self.reduction) # H(u,p)
+        loss = self.reduce_loss(loss.sum(dim=-1), self.reduction) # H(u,p)
         nll = F.nll_loss(output, target, reduction=self.reduction, ignore_index=self.ignore_index) # H(q,p)
 
         # (1-ε) * H(q,p) + ε * H(u,p)
