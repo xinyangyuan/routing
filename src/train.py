@@ -147,7 +147,7 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, writer, p
             loss.backward()
 
             # Gradient clipping - matain healthy grad 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=params.max_norm)
 
             # Update weights
             optimizer.step()
@@ -295,9 +295,10 @@ if __name__ == '__main__':
     # model = net.RouteNetV3(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers, dropout=params.dropout_rate).to(params.device)
     model = net.RouteNetV4(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers, dropout=params.dropout_rate).to(params.device)
     optimizer = optim.Adam(model.parameters(), lr=params.learning_rate)
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=params.factor, patience=params.patience)
-    scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=params.max_learning_rate, steps_per_epoch=len(train_loader), epochs=params.num_epochs, pct_start=params.anneal_start, div_factor=params.init_div_factor, final_div_factor=params.final_div_factor)
-
+    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=params.step_size, gamma=params.gamma) 
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=params.factor, patience=params.patience)
+    # scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=params.max_learning_rate, steps_per_epoch=len(train_loader), epochs=params.num_epochs, pct_start=params.anneal_start, div_factor=params.init_div_factor, final_div_factor=params.final_div_factor, anneal_strategy=params.strategy)
+    
     # Define loss function and metrics
     # criterion =  torch.nn.NLLLoss(ignore_index=params.ignore_index)
     criterion =  loss.LabelSmoothingNLLLoss(ignore_index=params.ignore_index)
