@@ -157,24 +157,6 @@ class InputFusion(nn.Module):
         
         return self.pe(self.norm(torch.cat((out, out_0), 1)))
 
-# class Summary(nn.Module):
-#     """ Summary layer """
-#     def __init__(self, summary_dim=-1, summary_strategy="pool", in_dim=None):
-#         super(Summary, self).__init__()
-        
-#         if summary_strategy == "pool":
-#             if summary_dim == -1 or summary_dim == 3:
-#                 self.summary = nn.AdaptiveAvgPool2d((None, 1)) # (batch_m, C, n, n) -> (batch_m, C, n, 1) 
-#             elif summary_dim == -2 or summary_dim == 2:
-#                 self.summary = nn.AdaptiveAvgPool2d((1, None)) # (batch_m, C, n, n) -> (batch_m, C, 1, n) 
-#             else
-#                 raise ValueError("summary_dim must be (2 or 3), assumed 4D input tensor (batch_m, C, h, w)")
-
-#         elif s
-    
-#     def forward(self, x):
-#         return self.summary(x)
-
 class Mixing(nn.Module):
     """Fourier-mixing layer"""
     def __init__(self, in_dim, mixing_dim=-1):
@@ -270,12 +252,91 @@ class SelfAttention(nn.Module):
         
         return out, energy
 
+class CrossAttention(nn.Module):
+    """Cross attention layer"""
+    def __init__(self, in_dim):
+        super(CrossAttention, self).__init__()
+        self.channel_in = in_dim
+        self.gamma = 1  # self.gamma = nn.Parameter(torch.zeros(1))
+        self.norm = nn.InstanceNorm2d(in_dim, affine=True) 
+        self.queries = nn.Conv2d(in_dim, in_dim//8, kernel_size=1, bias=False)
+        self.keys = nn.Conv2d(in_dim ,in_dim//8, kernel_size=1, bias=False)
+        self.values = nn.Conv2d(in_dim , in_dim, kernel_size= 1, bias=False)
+
+    def forward(self, x, mask):
+        """
+        Args :
+            x : input feature maps (batch_m, c, n, n) (n == max_num_stops)
+            mask: input feature masks (batch_m, n, n)
+        Returns :
+            out : self attention value + input feature (batch_m, c, n, n)
+            energy: energy values (batch_m, h, w, h+w) height==width==n
+        """
+
+        m_batch, C, height, width = x.size() # height==width==n
+
+        # Normalization across channels
+        x = self.norm(x)
+
+        # Queries
+        queries = self.queries(x) # (batch_m, C//8, h, w)
+        queries_H = queries.permute(0,3,1,2).contiguous().view(m_batch*width, -1, height).permute(0, 2, 1) # (batch_m, C//8, h, w) -> (batch_m * w, C//8, h) -> (batch_m * w, h, C//8)
+        queries_W = queries.permute(0,2,1,3).contiguous().view(m_batch*height, -1, width).permute(0, 2, 1) # (batch_m, C//8, h, w) -> (batch_m * h, C//8, w) -> (batch_m * h, w, C//8)
+
+        # Keys
+        keys = self.keys(x) # (batch_m, C//8, h, w)
+        keys_H = keys.permute(0,3,1,2).contiguous().view(m_batch*width, -1, height) # (batch_m, C//8, h, w) -> (batch_m * w, C//8, h)
+        keys_W = keys.permute(0,2,1,3).contiguous().view(m_batch*height,- 1, width) # (batch_m, C//8, h, w) -> (batch_m * h, C//8, w)
+
+        # Values
+        values = self.values(x) # (batch_m, C//8, h, w)
+        values_H = values.permute(0,3,1,2).contiguous().view(m_batch*width, -1, height) # (batch_m, C, h, w) -> (batch_m * w, C, h)
+        values_W = values.permute(0,2,1,3).contiguous().view(m_batch*height, -1, width) # (batch_m, C, h, w) -> (batch_m * h, C, w)
+
+        # Energy
+        energy_H = (torch.bmm(queries_H, keys_H) + self.INF(m_batch, height, width)).view(m_batch, width, height, height).permute(0,2,1,3) # (batch_m * w, h, h) -> (batch_m, h, w, h)
+        energy_W = torch.bmm(queries_W, keys_W).view(m_batch, height, width, width) # (batch_m * h, w, w) -> (batch_m, h, w, w)
+        energy = torch.cat([energy_H, energy_W], 3) # (batch_m, h, w, h+w)
+
+        if mask is not None:
+            energy = energy.masked_fill(mask.unsqueeze(-1) == 0, float("-1e20")) # (batch_m, h, w, h+w)
+
+        # Attention
+        att = torch.softmax(energy, dim=-1)         # (batch_m, h, w, h+w)
+        att_H = att[:,:,:,0:height].permute(0,2,1,3).contiguous().view(m_batch*width, height, height) # (batch_m, h, w, h) -> (batch_m, w, h, h) -> (batch_m * w, h, h)
+        att_W = att[:,:,:,height:height+width].contiguous().view(m_batch*height, width, width) # (batch_m, h, w, w) -> (batch_m * h, w, w)
+
+        # Out
+        out_H = torch.bmm(values_H, att_H.permute(0, 2, 1)).view(m_batch,width,-1,height).permute(0,2,3,1) # (batch_m * w, C, h) @ (batch_m * w, h, h) -> (batch_m, w, C, h) -> (batch_m, C, h, w)
+        out_W = torch.bmm(values_W, att_W.permute(0, 2, 1)).view(m_batch,height,-1,width).permute(0,2,1,3) # (batch_m * h, C, w) @ (batch_m * h, w, w) -> (batch_m, h, C, w) -> (batch_m, C, h, w)
+        out = out_H + out_W # (batch_m, C, h, w)
+        return out + x, energy
+    
+    @staticmethod
+    def INF(B:int,H:int,W:int):
+        return -torch.diag(torch.tensor(float("inf")).repeat(H),0).unsqueeze(0).repeat(B*W,1,1)
+
 class Router(nn.Module):
     """ Router block"""
     def __init__(self, in_dim, summary_dim=-1, dropout=0):
         super(Router, self).__init__()
         self.channel_in = in_dim
         self.attention = SelfAttention(in_dim, summary_dim)
+        self.convolution = Convolution(in_dim)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, mask):
+        out, _ = self.attention(x, mask)
+        out = self.convolution(out)
+        out = self.dropout(out)
+        return out
+
+class RouterV4(nn.Module):
+    """ Router block"""
+    def __init__(self, in_dim, dropout=0):
+        super(RouterV4, self).__init__()
+        self.channel_in = in_dim
+        self.attention = CrossAttention(in_dim)
         self.convolution = Convolution(in_dim)
         self.dropout = nn.Dropout(dropout)
 
