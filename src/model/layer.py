@@ -46,10 +46,10 @@ class Convolution(nn.Module):
         self.gamma = 1 # self.gamma = nn.Parameter(torch.zeros(1))   
         self.conv = nn.Sequential(
             nn.InstanceNorm2d(in_dim, affine=True),
-            nn.ReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_dim, in_dim//2, kernel_size=1, bias=False),
             nn.InstanceNorm2d(in_dim//2, affine=True),
-            nn.ReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_dim//2, in_dim, kernel_size=1, bias=False),
         )
 
@@ -128,8 +128,8 @@ class InputFusion(nn.Module):
         self.input = nn.Conv2d(in_dim, router_embbed_dim - aux_embbed_dim, kernel_size=1)
         self.input_0 = nn.Sequential(
             nn.Linear(in_dim_0, in_dim*aux_embbed_dim//2, bias=False),
-            nn.ReLU(),
-            nn.BatchNorm1d(in_dim*aux_embbed_dim//2),
+            nn.SiLU(),
+            nn.LayerNorm(in_dim*aux_embbed_dim//2),
             nn.Linear(in_dim*aux_embbed_dim//2, in_dim*aux_embbed_dim)
         )
 

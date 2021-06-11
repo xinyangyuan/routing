@@ -141,7 +141,11 @@ class RouteNetV4(nn.Module):
         self.num_routers = num_routers
    
         self.inp_layer = InputFusion(in_dim, in_dim_0, router_embbed_dim)
-        self.out_layer = SelfAttention(router_embbed_dim)
+        self.out_layer = nn.Sequential(
+            nn.Conv2d(router_embbed_dim, router_embbed_dim//2, kernel_size=1),
+            nn.SiLU(),
+            nn.Conv2d(router_embbed_dim//2, 1, kernel_size=1),
+        )
         self.routers = nn.ModuleList([
             RouterV4(router_embbed_dim, dropout) for _ in range(num_routers)
         ])
@@ -167,7 +171,11 @@ class RouteNetV4(nn.Module):
         # Output layer
         # note: log_softmax provides numerical stability, which log(0) is kept at
         # value of float("1e-20") instead of output -inf or nan.
-        _, out = self.out_layer(out, mask)  # (batch_m, n, n)
+        out = self.out_layer(out).squeeze(1)  # (batch_m, 1, n, n) -> (batch_m, n, n)
+
+        if mask is not None:
+            out = out.masked_fill(mask == 0, float("-1e20"))
+
         out = nn.functional.log_softmax(out, dim=-1)
         return out
 
