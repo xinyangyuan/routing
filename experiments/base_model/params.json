@@ -1,11 +1,11 @@
 {
-    "learning_rate": 2e-3,
+    "learning_rate": 1e-3,
     "max_learning_rate": 5e-3,
-    "batch_size": 4,
+    "batch_size": 1,
     "num_epochs": 200,
     "dropout_rate":0.05, 
-    "num_routers": 16,
-    "router_embbed_dim": 48,
+    "num_routers": 8,
+    "router_embbed_dim": 128,
     
     "factor": 0.5,
     "patience": 50,
@@ -14,9 +14,9 @@
     "anneal_start": 0.5,
     "init_div_factor": 10,
     "final_div_factor": 100,
-    "max_norm": 0.5,
+    "max_norm": 1,
     
-    "train": 4,
+    "train": 1,
     "val": 2,
     "ignore_index": -100
 }

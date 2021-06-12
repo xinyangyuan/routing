@@ -12,22 +12,19 @@ import pandas as pd
 from scipy import spatial
 from torch.utils.data import Dataset, DataLoader
 
-Sample = collections.namedtuple(
-    'Sample', 
-    (
-        'route_id',     # str
-        'num_stops',    # int 
-        'input',        # np.ndarray (num_stops, num_stops, num_1d_features + num_2d_features)
-        'input_0d',     # np.ndarray (num_0d_features, )
-        'input_1d',     # np.ndarray (num_stops, num_1d_features)
-        'input_2d',     # np.ndarray (num_stops, num_stops, num_2d_features)
-        'stop_ids',     # list[str] list of stop_id string in same order as input
-        'station_id',   # str the stop_id for station
-        'target',       # np.ndarray (num_stops, ) || None
-        'sequence',     # dict {stop_idx -> stop_id} || None
-        'sequence_map', # dict {stop_id -> stop_idx} || None
-    )
-)
+class Sample(typing.NamedTuple):
+    route_id:str    
+    num_stops:int   
+    input:np.ndarray              # (num_stops, num_stops, num_1d_features + num_2d_features)
+    input_0d:np.ndarray           # (num_0d_features, )
+    input_1d:np.ndarray           # (num_stops, num_1d_features)
+    input_2d:np.ndarray           # (num_stops, num_stops, num_2d_features)
+    stop_ids:typing.List[str]     # list of stop_id string in same order as input
+    station_id:str                # the stop_id for station
+    target:typing.Optional[np.ndarray]                 #  (num_stops, ) || None
+    sequence:typing.Optional[typing.Dict[int,str]]     #  {stop_idx -> stop_id} || None
+    sequence_map:typing.Optional[typing.Dict[str,int]] #  {stop_id -> stop_idx} || None
+
 
 class RoutingDataset(Dataset):
     """Routing dataset."""
@@ -433,6 +430,107 @@ class RoutingDataset(Dataset):
 
         return out
 
+class RandomPermute():
+    """Permute randomly the stop sequence in a sample."""
+
+    def __call__(self, sample:Sample) -> Sample:
+
+        input_, input_2d, target, stop_ids = sample.input, sample.input_2d, sample.target, sample.stop_ids  
+
+        # Permutated sequence
+        permutation = np.random.permutation(len(stop_ids))
+
+        # Permute orignial sample
+        input_ = input_[permutation][:, permutation] # np.ndarray (num_stops, num_stops, num_1d_features + num_2d_features)
+        input_2d = input_2d[permutation][:, permutation]  # np.ndarray (num_stops, num_stops, num_2d_features)
+        target = target[permutation] # np.ndarray (num_stops, )
+        stop_ids = [stop_ids[idx] for idx in np.nditer(permutation)] # list[str]
+
+        return Sample(
+                sample.route_id,   # str 
+                sample.num_stops,  # int
+                input_,                # np.ndarray (num_stops, num_stops, num_1d_features + num_2d_features)
+                sample.input_0d,   # np.ndarray (num_0d_features, )
+                sample.input_1d,   # np.ndarray (num_stops, num_1d_features)
+                input_2d,             # np.ndarray (num_stops, num_stops, num_2d_features)
+                stop_ids,             # list[str] list of stop_id string in same order as input
+                sample.station_id, # str 
+                target,               # np.ndarray (num_stops, )
+                sample.sequence,   # dict {stop_idx -> stop_id}
+                sample.sequence_map, # dict {stop_id -> stop_idx} 
+            )
+
+
+class BucketSampler(torch.utils.data.Sampler):
+    """
+    Collate function
+    
+    (1) separate dataset samples into buckets by length (num_stops of route)
+    (2) return random sampled batches with similar length
+
+    """
+    
+    def __init__(self, lengths, buckets=(0,500,25), shuffle=True, batch_size=32, drop_last=False):
+        """
+        Args:
+            lengths (int[]): a list of route length
+            buckets (tuple): (min_bucket_length, max_bucket_length, bucket_step_size)
+            shuffle (bool): true -> random shuffle samples orders in buckets
+            batch_size (int): size of batch to return when called
+            drop_last (bool): true -> drop last batch 
+        Return:
+            None
+        """
+        
+        super().__init__(lengths)
+        
+        self.shuffle = shuffle
+        self.batch_size = batch_size
+        self.drop_last = drop_last
+        
+        assert isinstance(buckets, tuple)
+        bmin, bmax, bstep = buckets
+        assert (bmax - bmin) % bstep == 0
+        
+        buckets = collections.defaultdict(list)
+        for i, length in enumerate(lengths):
+            if length > bmin:
+                bucket_size = min((length // bstep) * bstep, bmax)
+                buckets[bucket_size].append(i)
+                
+        self.buckets = dict()
+        for bucket_size, bucket in buckets.items():
+            if len(bucket) > 0:
+                self.buckets[bucket_size] = torch.tensor(bucket, dtype=torch.int, device='cpu')
+        
+        # call __iter__() to store self.length
+        self.__iter__()
+            
+    def __iter__(self):
+        
+        if self.shuffle == True:
+            for bucket_size in self.buckets.keys():
+                self.buckets[bucket_size] = self.buckets[bucket_size][torch.randperm(self.buckets[bucket_size].nelement())]
+                
+        batches = []
+        for bucket in self.buckets.values():
+            curr_bucket = torch.split(bucket, self.batch_size)
+            if len(curr_bucket) > 1 and self.drop_last == True:
+                if len(curr_bucket[-1]) < len(curr_bucket[-2]):
+                    curr_bucket = curr_bucket[:-1]
+            batches += curr_bucket
+            
+        self.length = len(batches)
+        
+        if self.shuffle == True:
+            random.shuffle(batches)
+            
+        return iter(batches)
+    
+    def __len__(self):
+        return self.length
+
+
 def get_collate_fn(stage="build", params=None):
     """
     Get the collate function that is used in dataloader.
@@ -511,75 +609,6 @@ def get_collate_fn(stage="build", params=None):
     return collate_fn
 
 
-class BucketSampler(torch.utils.data.Sampler):
-    """
-    Collate function
-    
-    (1) separate dataset samples into buckets by length (num_stops of route)
-    (2) return random sampled batches with similar length
-
-    """
-    
-    def __init__(self, lengths, buckets=(0,500,25), shuffle=True, batch_size=32, drop_last=False):
-        """
-        Args:
-            lengths (int[]): a list of route length
-            buckets (tuple): (min_bucket_length, max_bucket_length, bucket_step_size)
-            shuffle (bool): true -> random shuffle samples orders in buckets
-            batch_size (int): size of batch to return when called
-            drop_last (bool): true -> drop last batch 
-        Return:
-            None
-        """
-        
-        super().__init__(lengths)
-        
-        self.shuffle = shuffle
-        self.batch_size = batch_size
-        self.drop_last = drop_last
-        
-        assert isinstance(buckets, tuple)
-        bmin, bmax, bstep = buckets
-        assert (bmax - bmin) % bstep == 0
-        
-        buckets = collections.defaultdict(list)
-        for i, length in enumerate(lengths):
-            if length > bmin:
-                bucket_size = min((length // bstep) * bstep, bmax)
-                buckets[bucket_size].append(i)
-                
-        self.buckets = dict()
-        for bucket_size, bucket in buckets.items():
-            if len(bucket) > 0:
-                self.buckets[bucket_size] = torch.tensor(bucket, dtype=torch.int, device='cpu')
-        
-        # call __iter__() to store self.length
-        self.__iter__()
-            
-    def __iter__(self):
-        
-        if self.shuffle == True:
-            for bucket_size in self.buckets.keys():
-                self.buckets[bucket_size] = self.buckets[bucket_size][torch.randperm(self.buckets[bucket_size].nelement())]
-                
-        batches = []
-        for bucket in self.buckets.values():
-            curr_bucket = torch.split(bucket, self.batch_size)
-            if len(curr_bucket) > 1 and self.drop_last == True:
-                if len(curr_bucket[-1]) < len(curr_bucket[-2]):
-                    curr_bucket = curr_bucket[:-1]
-            batches += curr_bucket
-            
-        self.length = len(batches)
-        
-        if self.shuffle == True:
-            random.shuffle(batches)
-            
-        return iter(batches)
-    
-    def __len__(self):
-        return self.length
-
 def get_dataset(stages, data_dir=None):
     """
     Get the Dataset object for each stage in stages.
@@ -596,8 +625,9 @@ def get_dataset(stages, data_dir=None):
         data_dir = Path(__file__).parent / "../../data"
 
     for stage in ['build', 'apply']:
+        transform = RandomPermute() if stage == 'build' else None
         if stage in stages:
-            dataset = RoutingDataset(data_dir, stage)
+            dataset = RoutingDataset(data_dir, stage, transform=transform)
             datasets[stage] = dataset
 
     return datasets
