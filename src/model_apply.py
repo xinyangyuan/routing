@@ -1,144 +1,128 @@
+# OR-only 
 from os import path
 import sys, json, time
+import datetime
 
-# Get Directory
-BASE_DIR = path.dirname(path.dirname(path.abspath(__file__)))
+import numpy as np
+import pandas as pd
 
-# Read input data
-print('Reading Input Data')
-# Model Build output
-model_path=path.join(BASE_DIR, 'data/model_build_outputs/model.json')
-with open(model_path, newline='') as in_file:
-    model_build_out = json.load(in_file)
-# Prediction Routes (Model Apply input)
-prediction_routes_path = path.join(BASE_DIR, 'data/model_apply_inputs/new_route_data.json')
-with open(prediction_routes_path, newline='') as in_file:
-    prediction_routes = json.load(in_file)
+# from ortools.constraint_solver import routing_enums_pb2
+# from ortools.constraint_solver import pywrapcp
 
-def sort_by_key(stops, sort_by):
-    """
-    Takes in the `prediction_routes[route_id]['stops']` dictionary
-    Returns a dictionary of the stops with their sorted order always placing the depot first
+# ML
+import os
+import json
+import random
+import collections
+import enum
+import typing
 
-    EG:
+from tqdm import tqdm
+from scipy import spatial
+import torch
+import torch.nn as nn
+from torch.utils.data import Dataset, DataLoader
+from torch.cuda.amp import autocast, GradScaler
 
-    Input:
-    ```
-    stops={
-      "Depot": {
-        "lat": 42.139891,
-        "lng": -71.494346,
-        "type": "depot",
-        "zone_id": null
-      },
-      "StopID_001": {
-        "lat": 43.139891,
-        "lng": -71.494346,
-        "type": "delivery",
-        "zone_id": "A-2.2A"
-      },
-      "StopID_002": {
-        "lat": 42.139891,
-        "lng": -71.494346,
-        "type": "delivery",
-        "zone_id": "P-13.1B"
-      }
-    }
+import argparse
+import logging
+import torch.optim as optim
+from torch.utils.tensorboard import SummaryWriter
 
-    print (sort_by_key(stops, 'lat'))
-    ```
-
-    Output:
-    ```
-    {
-        "Depot":1,
-        "StopID_001":3,
-        "StopID_002":2
-    }
-    ```
-
-    """
-    # Serialize keys as id into each dictionary value and make the dict a list
-    stops_list=[{**value, **{'id':key}} for key, value in stops.items()]
-
-    # Sort the stops list by the key specified when calling the sort_by_key func
-    ordered_stop_list=sorted(stops_list, key=lambda x: x[sort_by])
-
-    # Keep only sorted list of ids
-    ordered_stop_list_ids=[i['id'] for i in ordered_stop_list]
-
-    # Serialize back to dictionary format with output order as the values
-    return {i:ordered_stop_list_ids.index(i) for i in ordered_stop_list_ids}
-
-def propose_all_routes(prediction_routes, sort_by):
-    """
-    Applies `sort_by_key` to each route's set of stops and returns them in a dictionary under `output[route_id]['proposed']`
-
-    EG:
-
-    Input:
-    ```
-    prediction_routes = {
-      "RouteID_001": {
-        ...
-        "stops": {
-          "Depot": {
-            "lat": 42.139891,
-            "lng": -71.494346,
-            "type": "depot",
-            "zone_id": null
-          },
-          ...
-        }
-      },
-      ...
-    }
-
-    print(propose_all_routes(prediction_routes, 'lat'))
-    ```
-
-    Output:
-    ```
-    {
-      "RouteID_001": {
-        "proposed": {
-          "Depot": 0,
-          "StopID_001": 1,
-          "StopID_002": 2
-        }
-      },
-      ...
-    }
-    ```
-    """
-    return {key:{'proposed':sort_by_key(stops=value['stops'], sort_by=sort_by)} for key, value in prediction_routes.items()}
-
-# Apply faux algorithms to pass time
-time.sleep(1)
-print('Solving Dark Matter Waveforms')
-time.sleep(1)
-print('Quantum Computer is Overheating')
-time.sleep(1)
-print('Trying Alternate Measurement Cycles')
-time.sleep(1)
-print('Found a Great Solution!')
-time.sleep(1)
-print('Checking Validity')
-time.sleep(1)
-print('The Answer is 42!')
-time.sleep(1)
+import utils
+import model.net as net
+import model.dataset as dataset
+import model.loss as loss
+from beam_search import *
 
 
-print('\nApplying answer with real model...')
-sort_by=model_build_out.get("sort_by")
-print('Sorting data by the key: {}'.format(sort_by))
-output=propose_all_routes(prediction_routes=prediction_routes, sort_by=sort_by)
-print('Data sorted!')
+## Initialize Paths
+sys.argv = ['']
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(" ")))
+parser = argparse.ArgumentParser()
+parser.add_argument('--data_dir', default=os.path.join(BASE_DIR, 'data'),
+                    help="Directory containing the dataset")
+parser.add_argument('--model_dir', default=os.path.join(BASE_DIR, 'data/model_build_outputs'),
+                    help="Directory containing params.json")
+parser.add_argument('--restore_file', default=None,
+                    help="Optional, name of the file in --model_dir containing weights to reload before \
+                    training")  # 'best' or 'train'
+args = parser.parse_args()
+json_path = os.path.join(args.model_dir, 'params.json')
+model_path = os.path.join(args.model_dir, 'best.pth.tar')
+
+
+new_routes_path = path.join(BASE_DIR, "data/model_apply_inputs/new_route_data.json")
+df_route = pd.read_json(new_routes_path).transpose()
+
+
+
+## Load Data
+datasets = dataset.get_dataset(["apply"], args.data_dir)
+build_dataset = datasets["apply"]
+
+## Load Model
+params = utils.Params(json_path)
+model = net.RouteNetV4(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers, dropout=params.dropout_rate)
+checkpoint = torch.load(model_path)
+model.load_state_dict(checkpoint['state_dict'])
+model.eval()
+
+## Load Evaluation Dataset
+train_set= build_dataset
+train_sampler = dataset.BucketSampler([route.num_stops for route in train_set], batch_size=1, shuffle=False, drop_last=False)
+collate_fn = dataset.get_collate_fn(stage="apply", params=params)
+train_loader = dataset.DataLoader(train_set, batch_sampler=train_sampler, collate_fn=collate_fn)
+
+
+
+## Evaluation
+output_dict = {}
+iterator = iter(train_loader)
+for i in range(len(train_loader)):
+    batch = next(iterator)
+
+    inputs = batch['inputs'] # (n, max_num_stops, max_num_stops, num_1d_features + num_2d_features)
+    input_0ds = batch['input_0ds'] # (n, num_0d_features)
+    masks = batch['masks'] # (n, max_num_stops, max_num_stops)
+    route_ids = batch["route_ids"][0]
+
+    print(route_ids)
+
+    outputs = model(inputs, input_0ds, masks)
+    output = outputs.squeeze().detach().numpy()
+
+
+    #### get route_no and sequence
+    route_no = route_ids
+    keys = df_route.loc[route_no]["stops"].keys()
+    mydict = df_route.loc[route_no]["stops"]
+    for _ in mydict.keys():
+        if mydict[_]["type"] == "Station":
+            station_code = _
+    station_no = list(keys).index(station_code)
+    stop_id_map = list(keys)
+    ####
+
+
+    # Compute output ranking
+    starting_node = station_no
+    sequence = beam_search(start_node=starting_node, weight_matrix=np.exp(output)*50, num_beam=int(1*output.shape[0])).tolist()
+    rank = [0]*len(sequence)
+    for i in range(len(rank)):
+        rank[i] = sequence.index(i)
+
+    # zip to dict 
+
+    values_list = rank
+    zip_itr = zip(stop_id_map, rank)
+    a_dict = dict(zip_itr)
+    a_dict = dict(proposed = a_dict)
+    output_dict[route_no] = a_dict
+
 
 # Write output data
-output_path=path.join(BASE_DIR, 'data/model_apply_outputs/proposed_sequences.json')
-with open(output_path, 'w') as out_file:
-    json.dump(output, out_file)
-    print("Success: The '{}' file has been saved".format(output_path))
-
-print('Done!')
+output_path = path.join(BASE_DIR, "data/model_apply_outputs/proposed_sequences.json")
+with open(output_path, "w") as out_file:
+    json.dump(output_dict, out_file)
+print("Done!")
