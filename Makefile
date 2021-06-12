@@ -1,4 +1,4 @@
-.PHONY: data-wget data-cli tensorboard jupyter-notebook jupyter-lab run
+.PHONY: data-wget data-cli data-2000 tensorboard jupyter-notebook jupyter-lab run
 
 ifneq ($(shell which rc-cli), )
 data: data-cli
@@ -14,6 +14,9 @@ data-wget:
 
 data-cli:
 	rc-cli reset-data
+
+data-2000:
+	wget -O data/model_build_inputs/route_data.json https://raw.githubusercontent.com/JGIoA/temp/main/route_data_high_2000.json  
 
 tb: tensorboard
 

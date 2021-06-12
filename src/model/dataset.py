@@ -21,6 +21,8 @@ Sample = collections.namedtuple(
         'input_0d',     # np.ndarray (num_0d_features, )
         'input_1d',     # np.ndarray (num_stops, num_1d_features)
         'input_2d',     # np.ndarray (num_stops, num_stops, num_2d_features)
+        'stop_ids',     # list[str] list of stop_id string in same order as input
+        'station_id',   # str the stop_id for station
         'target',       # np.ndarray (num_stops, ) || None
         'sequence',     # dict {stop_idx -> stop_id} || None
         'sequence_map', # dict {stop_id -> stop_idx} || None
@@ -90,7 +92,8 @@ class RoutingDataset(Dataset):
         # preapare stop-related information
         stops = route.stops # dict
         num_stops = len(stops)
-        stop_mapping = {id: idx for idx, id in enumerate(stops.keys())}
+        stop_ids =  list(stops.keys()) # str[] list of stop_id string in same order as input
+        station_id = [stop_id for stop_id, stop in stops.items() if stop['type'] == 'Station'][0] # str
         stop_embeddings = self.get_stop_embeddings(stops) # list(np.ndarray)
 
         # prepare package-related information
@@ -129,7 +132,6 @@ class RoutingDataset(Dataset):
         if self.stage == "build":
             sequence_map = self.actual_sequences[route_id]["actual"] # {str -> int} stop_id string -> index in actual sequence
             sequence = {stop_idx : stop_id for stop_id, stop_idx in sequence_map.items()} # {int -> str} index in actual sequence -> stop_id string
-            stop_ids =  list(sequence_map.keys()) # str[] list of stop_id string in same order as input
             target = np.array([
                 stop_ids.index(sequence[stop_idx+1]) if stop_idx < (len(sequence_map)-1) else stop_ids.index(sequence[0]) 
                 for stop_idx in sequence_map.values()
@@ -151,6 +153,8 @@ class RoutingDataset(Dataset):
                 input_0d,   # np.ndarray (num_0d_features, )
                 input_1d,   # np.ndarray (num_stops, num_1d_features)
                 input_2d,   # np.ndarray (num_stops, num_stops, num_2d_features)
+                stop_ids,   # list[str] list of stop_id string in same order as input
+                station_id, # str 
                 target,     # np.ndarray (num_stops, )
                 sequence,   # dict {stop_idx -> stop_id}
                 sequence_map, # dict {stop_id -> stop_idx} 
@@ -163,6 +167,8 @@ class RoutingDataset(Dataset):
                 input_0d,   # np.ndarray (num_0d_features, )
                 input_1d,   # np.ndarray (num_stops, num_1d_features)
                 input_2d,   # np.ndarray (num_stops, num_stops, num_2d_features)
+                stop_ids,   # list[str] list of stop_id string in same order as input
+                station_id, # str
                 None,
                 None,
                 None,
@@ -454,7 +460,7 @@ def get_collate_fn(stage="build", params=None):
         """
 
         # unpack Samples[]
-        route_ids, num_stops, inputs, input_0ds, _, _, targets, sequences, sequence_maps = zip(*batch)
+        route_ids, num_stops, inputs, input_0ds, _, _, stop_ids, station_ids, targets, sequences, sequence_maps = zip(*batch)
 
         # cosntants
         max_num_stops = max(num_stops)
@@ -486,6 +492,8 @@ def get_collate_fn(stage="build", params=None):
                 'input_0ds': input_0ds,         # torch.tensor[] (n, num_0d_features)
                 'masks': masks,                 # torch.tensor[] (n, max_num_stops, max_num_stops)
                 'targets': targets,             # torch.tensor[] (n, max_num_stops)
+                'stop_ids': stop_ids,           # str[][] (n, num_stops)
+                'station_ids': station_ids,     # str[]  (n)
                 'sequences': sequences,         # dict[] {stop_idx -> stop_id}
                 'sequence_maps': sequence_maps, # dict[] {stop_id -> stop_idx}
             }
@@ -496,6 +504,8 @@ def get_collate_fn(stage="build", params=None):
                 'inputs': inputs,               # torch.tensor[] (n, max_num_stops, max_num_stops, num_1d_features + num_2d_features)
                 'input_0ds': input_0ds,         # torch.tensor[] (n, num_0d_features)
                 'masks': masks,                 # torch.tensor[] (n, max_num_stops, max_num_stops)
+                'stop_ids': stop_ids,           # str[][] (n, num_stops)
+                'station_ids': station_ids,     # str[]  (n)
             }
     
     return collate_fn
