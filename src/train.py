@@ -152,8 +152,9 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, writer, p
             # Update weights
             optimizer.step()
 
-            # Scheduler step (oneCycleLR)
-            # scheduler.step()
+            # Scheduler step (step-wise scheduler, e.g., oneCycleLR)
+            scheduler.step(loss.item())
+            writer.add_scalar('Learning Rate', optimizer.param_groups[0]['lr'], (epoch_counter()-1) * len(dataloader) + i)
 
             # Evaluate summaries only once in a while
             if i % params.save_summary_steps == 0:
@@ -182,9 +183,9 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, writer, p
     metrics_string = " ; ".join("{}: {:05.3f}".format(k, v) for k, v in metrics_mean.items())
     logging.info("- Train metrics: " + metrics_string)
 
-    # Scheduler step (reduce on plateou scheduler)
-    scheduler.step(loss_avg())
-    writer.add_scalar('Learning Rate', scheduler.get_lr()[0], (epoch_counter()-1) * len(dataloader) + i)
+    # Scheduler step (epoch-wise scheduler, e.g., reduceOnPlateou)
+    # scheduler.step(loss_avg())
+    # writer.add_scalar('Learning Rate', scheduler.get_lr()[0], (epoch_counter()-1) * len(dataloader) + i)
 
     return metrics_mean
 
@@ -246,7 +247,7 @@ if __name__ == '__main__':
 
     # Use GPU if available
     params.cuda = torch.cuda.is_available()
-    params.device = torch.device("cuda" if params.cuda  else "cpu")
+    params.device = torch.device("cuda" if params.cuda else "cpu")
 
     # Set default ignore_index
     if "ignore_index" not in params.dict:

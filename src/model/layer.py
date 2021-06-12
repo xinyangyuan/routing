@@ -254,14 +254,17 @@ class SelfAttention(nn.Module):
 
 class CrossAttention(nn.Module):
     """Cross attention layer"""
-    def __init__(self, in_dim):
+    def __init__(self, in_dim:int, contraction_factor:int=2):
         super(CrossAttention, self).__init__()
         self.channel_in = in_dim
+        self.alpha = contraction_factor
         self.gamma = 1  # self.gamma = nn.Parameter(torch.zeros(1))
         self.norm = nn.InstanceNorm2d(in_dim, affine=True) 
-        self.queries = nn.Conv2d(in_dim, in_dim//8, kernel_size=1, bias=False)
-        self.keys = nn.Conv2d(in_dim ,in_dim//8, kernel_size=1, bias=False)
-        self.values = nn.Conv2d(in_dim , in_dim, kernel_size= 1, bias=False)
+        # self.queries = nn.Conv2d(in_dim, in_dim//8, kernel_size=1, bias=False)
+        # self.keys = nn.Conv2d(in_dim ,in_dim//8, kernel_size=1, bias=False)
+        # self.values = nn.Conv2d(in_dim , in_dim, kernel_size= 1, bias=False)
+        self.qkv = nn.Conv2d(in_dim, 2 * (in_dim//self.alpha) + in_dim, kernel_size=1, bias=False)
+
 
     def forward(self, x, mask):
         """
@@ -276,20 +279,22 @@ class CrossAttention(nn.Module):
         m_batch, C, height, width = x.size() # height==width==n
 
         # Normalization across channels
-        x = self.norm(x)
+        out = self.norm(x) # (batch_m, C, h, w)
+        out = self.qkv(out)  # (batch_m, C//8 + C//8 + C, h, w)
+        queries, keys, values = torch.split(out, [self.channel_in//self.alpha,  self.channel_in//self.alpha,  self.channel_in], dim=1) # (batch_m, C//8, h, w), (batch_m, C//8, h, w), (batch_m, C, h, w)
 
         # Queries
-        queries = self.queries(x) # (batch_m, C//8, h, w)
+        # queries = self.queries(x) # (batch_m, C//8, h, w)
         queries_H = queries.permute(0,3,1,2).contiguous().view(m_batch*width, -1, height).permute(0, 2, 1) # (batch_m, C//8, h, w) -> (batch_m * w, C//8, h) -> (batch_m * w, h, C//8)
         queries_W = queries.permute(0,2,1,3).contiguous().view(m_batch*height, -1, width).permute(0, 2, 1) # (batch_m, C//8, h, w) -> (batch_m * h, C//8, w) -> (batch_m * h, w, C//8)
 
         # Keys
-        keys = self.keys(x) # (batch_m, C//8, h, w)
+        # keys = self.keys(x) # (batch_m, C//8, h, w)
         keys_H = keys.permute(0,3,1,2).contiguous().view(m_batch*width, -1, height) # (batch_m, C//8, h, w) -> (batch_m * w, C//8, h)
         keys_W = keys.permute(0,2,1,3).contiguous().view(m_batch*height,- 1, width) # (batch_m, C//8, h, w) -> (batch_m * h, C//8, w)
 
         # Values
-        values = self.values(x) # (batch_m, C//8, h, w)
+        # values = self.values(x) # (batch_m, C, h, w)
         values_H = values.permute(0,3,1,2).contiguous().view(m_batch*width, -1, height) # (batch_m, C, h, w) -> (batch_m * w, C, h)
         values_W = values.permute(0,2,1,3).contiguous().view(m_batch*height, -1, width) # (batch_m, C, h, w) -> (batch_m * h, C, w)
 

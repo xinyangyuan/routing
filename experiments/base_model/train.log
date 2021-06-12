@@ -1,0 +1,108 @@
+2021-06-12 18:02:11,227:INFO: Loading the datasets from /Users/yuanxinyang/Desktop/routing/data...
+2021-06-12 18:03:30,726:INFO: - done.
+2021-06-12 18:03:30,728:INFO: Building model using params from /Users/yuanxinyang/Desktop/routing/experiments/base_model
+2021-06-12 18:03:30,748:INFO: Starting training for 200 epoch(s)
+2021-06-12 18:03:30,748:INFO: Epoch 1/200
+2021-06-12 18:04:42,457:INFO: Loading the datasets from /Users/yuanxinyang/Desktop/routing/data...
+2021-06-12 18:05:54,065:INFO: - done.
+2021-06-12 18:05:54,067:INFO: Building model using params from /Users/yuanxinyang/Desktop/routing/experiments/base_model
+2021-06-12 18:05:54,085:INFO: Starting training for 200 epoch(s)
+2021-06-12 18:05:54,085:INFO: Epoch 1/200
+2021-06-12 18:05:58,763:INFO: - Train metrics: accuracy: 0.050 ; loss: 4.809
+2021-06-12 18:05:59,501:INFO: - Eval metrics : accuracy: 0.072 ; loss: 4.333
+2021-06-12 18:05:59,530:INFO: - Found new best accuracy
+2021-06-12 18:05:59,547:INFO: Epoch 2/200
+2021-06-12 18:06:03,662:INFO: - Train metrics: accuracy: 0.128 ; loss: 3.923
+2021-06-12 18:06:04,348:INFO: - Eval metrics : accuracy: 0.137 ; loss: 3.933
+2021-06-12 18:06:04,418:INFO: - Found new best accuracy
+2021-06-12 18:06:04,426:INFO: Epoch 3/200
+2021-06-12 18:06:08,900:INFO: - Train metrics: accuracy: 0.101 ; loss: 3.923
+2021-06-12 18:06:09,585:INFO: - Eval metrics : accuracy: 0.122 ; loss: 3.891
+2021-06-12 18:06:09,665:INFO: Epoch 4/200
+2021-06-12 18:06:13,502:INFO: - Train metrics: accuracy: 0.120 ; loss: 3.537
+2021-06-12 18:06:14,259:INFO: - Eval metrics : accuracy: 0.079 ; loss: 3.954
+2021-06-12 18:06:14,298:INFO: Epoch 5/200
+2021-06-12 18:06:18,171:INFO: - Train metrics: accuracy: 0.127 ; loss: 3.495
+2021-06-12 18:06:18,936:INFO: - Eval metrics : accuracy: 0.099 ; loss: 3.826
+2021-06-12 18:06:18,982:INFO: Epoch 6/200
+2021-06-12 18:06:22,891:INFO: - Train metrics: accuracy: 0.133 ; loss: 3.334
+2021-06-12 18:06:23,655:INFO: - Eval metrics : accuracy: 0.078 ; loss: 3.618
+2021-06-12 18:06:23,688:INFO: Epoch 7/200
+2021-06-12 18:06:28,678:INFO: - Train metrics: accuracy: 0.144 ; loss: 3.362
+2021-06-12 18:06:29,447:INFO: - Eval metrics : accuracy: 0.078 ; loss: 3.641
+2021-06-12 18:06:29,534:INFO: Epoch 8/200
+2021-06-12 18:06:33,467:INFO: - Train metrics: accuracy: 0.133 ; loss: 3.286
+2021-06-12 18:06:34,224:INFO: - Eval metrics : accuracy: 0.081 ; loss: 3.647
+2021-06-12 18:06:34,275:INFO: Epoch 9/200
+2021-06-12 18:06:38,206:INFO: - Train metrics: accuracy: 0.106 ; loss: 3.348
+2021-06-12 18:06:38,913:INFO: - Eval metrics : accuracy: 0.088 ; loss: 3.779
+2021-06-12 18:06:39,012:INFO: Epoch 10/200
+2021-06-12 18:06:44,547:INFO: - Train metrics: accuracy: 0.118 ; loss: 3.207
+2021-06-12 18:06:45,450:INFO: - Eval metrics : accuracy: 0.053 ; loss: 3.787
+2021-06-12 18:06:45,482:INFO: Epoch 11/200
+2021-06-12 18:06:50,443:INFO: - Train metrics: accuracy: 0.139 ; loss: 3.165
+2021-06-12 18:06:51,165:INFO: - Eval metrics : accuracy: 0.040 ; loss: 3.700
+2021-06-12 18:06:51,261:INFO: Epoch 12/200
+2021-06-12 18:06:55,395:INFO: - Train metrics: accuracy: 0.122 ; loss: 3.230
+2021-06-12 18:06:56,102:INFO: - Eval metrics : accuracy: 0.048 ; loss: 3.889
+2021-06-12 18:06:56,194:INFO: Epoch 13/200
+2021-06-12 18:07:00,137:INFO: - Train metrics: accuracy: 0.122 ; loss: 3.234
+2021-06-12 18:07:00,901:INFO: - Eval metrics : accuracy: 0.040 ; loss: 3.813
+2021-06-12 18:07:00,990:INFO: Epoch 14/200
+2021-06-12 18:07:04,984:INFO: - Train metrics: accuracy: 0.120 ; loss: 3.206
+2021-06-12 18:07:05,723:INFO: - Eval metrics : accuracy: 0.029 ; loss: 3.785
+2021-06-12 18:07:05,815:INFO: Epoch 15/200
+2021-06-12 18:07:10,662:INFO: - Train metrics: accuracy: 0.141 ; loss: 3.092
+2021-06-12 18:07:11,396:INFO: - Eval metrics : accuracy: 0.032 ; loss: 3.816
+2021-06-12 18:07:11,491:INFO: Epoch 16/200
+2021-06-12 18:07:15,516:INFO: - Train metrics: accuracy: 0.101 ; loss: 3.223
+2021-06-12 18:07:16,312:INFO: - Eval metrics : accuracy: 0.035 ; loss: 3.794
+2021-06-12 18:07:16,356:INFO: Epoch 17/200
+2021-06-12 18:07:20,790:INFO: - Train metrics: accuracy: 0.108 ; loss: 3.230
+2021-06-12 18:07:21,513:INFO: - Eval metrics : accuracy: 0.029 ; loss: 3.862
+2021-06-12 18:07:21,574:INFO: Epoch 18/200
+2021-06-12 18:07:26,533:INFO: - Train metrics: accuracy: 0.110 ; loss: 3.041
+2021-06-12 18:07:27,283:INFO: - Eval metrics : accuracy: 0.038 ; loss: 3.719
+2021-06-12 18:07:27,320:INFO: Epoch 19/200
+2021-06-12 18:08:11,800:INFO: Loading the datasets from /Users/yuanxinyang/Desktop/routing/data...
+2021-06-12 18:09:19,695:INFO: - done.
+2021-06-12 18:09:19,698:INFO: Building model using params from /Users/yuanxinyang/Desktop/routing/experiments/base_model
+2021-06-12 18:09:19,714:INFO: Starting training for 200 epoch(s)
+2021-06-12 18:09:19,715:INFO: Epoch 1/200
+2021-06-12 18:09:24,301:INFO: - Train metrics: accuracy: 0.041 ; loss: 4.557
+2021-06-12 18:09:25,078:INFO: - Eval metrics : accuracy: 0.118 ; loss: 3.547
+2021-06-12 18:09:25,125:INFO: - Found new best accuracy
+2021-06-12 18:09:25,143:INFO: Epoch 2/200
+2021-06-12 18:09:29,469:INFO: - Train metrics: accuracy: 0.137 ; loss: 3.453
+2021-06-12 18:09:30,240:INFO: - Eval metrics : accuracy: 0.085 ; loss: 3.997
+2021-06-12 18:09:30,337:INFO: Epoch 3/200
+2021-06-12 18:09:34,783:INFO: - Train metrics: accuracy: 0.169 ; loss: 3.400
+2021-06-12 18:09:35,646:INFO: - Eval metrics : accuracy: 0.058 ; loss: 3.887
+2021-06-12 18:09:35,722:INFO: Epoch 4/200
+2021-06-12 18:09:39,848:INFO: - Train metrics: accuracy: 0.116 ; loss: 3.371
+2021-06-12 18:09:40,613:INFO: - Eval metrics : accuracy: 0.068 ; loss: 3.814
+2021-06-12 18:09:40,669:INFO: Epoch 5/200
+2021-06-12 18:09:44,784:INFO: - Train metrics: accuracy: 0.089 ; loss: 3.402
+2021-06-12 18:09:45,504:INFO: - Eval metrics : accuracy: 0.053 ; loss: 3.978
+2021-06-12 18:09:45,598:INFO: Epoch 6/200
+2021-06-12 18:09:49,650:INFO: - Train metrics: accuracy: 0.099 ; loss: 3.212
+2021-06-12 18:09:50,361:INFO: - Eval metrics : accuracy: 0.068 ; loss: 3.537
+2021-06-12 18:09:50,455:INFO: Epoch 7/200
+2021-06-12 18:09:54,778:INFO: - Train metrics: accuracy: 0.116 ; loss: 3.300
+2021-06-12 18:09:55,497:INFO: - Eval metrics : accuracy: 0.041 ; loss: 3.882
+2021-06-12 18:09:55,590:INFO: Epoch 8/200
+2021-06-12 18:09:59,724:INFO: - Train metrics: accuracy: 0.115 ; loss: 3.338
+2021-06-12 18:10:00,441:INFO: - Eval metrics : accuracy: 0.035 ; loss: 4.231
+2021-06-12 18:10:00,539:INFO: Epoch 9/200
+2021-06-12 18:10:04,650:INFO: - Train metrics: accuracy: 0.086 ; loss: 3.169
+2021-06-12 18:10:05,401:INFO: - Eval metrics : accuracy: 0.044 ; loss: 3.287
+2021-06-12 18:10:05,451:INFO: Epoch 10/200
+2021-06-12 18:10:09,644:INFO: - Train metrics: accuracy: 0.121 ; loss: 3.222
+2021-06-12 18:10:10,482:INFO: - Eval metrics : accuracy: 0.039 ; loss: 3.514
+2021-06-12 18:10:10,636:INFO: Epoch 11/200
+2021-06-12 18:10:15,903:INFO: - Train metrics: accuracy: 0.125 ; loss: 3.102
+2021-06-12 18:10:16,693:INFO: - Eval metrics : accuracy: 0.037 ; loss: 4.058
+2021-06-12 18:10:16,752:INFO: Epoch 12/200
+2021-06-12 18:10:21,151:INFO: - Train metrics: accuracy: 0.087 ; loss: 3.251
+2021-06-12 18:10:21,982:INFO: - Eval metrics : accuracy: 0.035 ; loss: 4.371
+2021-06-12 18:10:22,019:INFO: Epoch 13/200
