@@ -430,7 +430,7 @@ class RoutingDataset(Dataset):
 
         return out
 
-class RandomPermute():
+class RandomPermute(object):
     """Permute randomly the stop sequence in a sample."""
 
     def __call__(self, sample:Sample) -> Sample:
@@ -444,6 +444,7 @@ class RandomPermute():
         input_ = input_[permutation][:, permutation] # np.ndarray (num_stops, num_stops, num_1d_features + num_2d_features)
         input_2d = input_2d[permutation][:, permutation]  # np.ndarray (num_stops, num_stops, num_2d_features)
         target = target[permutation] # np.ndarray (num_stops, )
+        target = np.array([np.where(permutation == stop)[0][0] for stop in np.nditer(target)]) # np.ndarray (num_stops, )
         stop_ids = [stop_ids[idx] for idx in np.nditer(permutation)] # list[str]
 
         return Sample(
