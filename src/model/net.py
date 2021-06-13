@@ -181,7 +181,7 @@ class RouteNetV4(nn.Module):
     
 class RouteNetV5(nn.Module):
     """ RouteNet V5"""
-    def __init__(self, in_dim=42, in_dim_0=9, router_embbed_dim=128, num_routers=16, num_heads=2, contraction_factor=2, dropout=0):
+    def __init__(self, in_dim=42, in_dim_0=9, router_embbed_dim=128, num_routers=16, num_heads=2, num_groups=2, contraction_factor=2, dropout=0):
         super(RouteNetV5, self).__init__()
         self.input_size = in_dim
         self.channel_in = in_dim
@@ -197,7 +197,7 @@ class RouteNetV5(nn.Module):
             nn.Conv2d(router_embbed_dim//2, 1, kernel_size=1),
         )
         self.routers = nn.ModuleList([
-            RouterV5(in_dim=router_embbed_dim, heads=num_heads, contraction_factor=contraction_factor, dropout=dropout) for _ in range(num_routers)
+            RouterV5(in_dim=router_embbed_dim, num_heads=num_heads,  num_groups=num_groups, contraction_factor=contraction_factor, dropout=dropout) for _ in range(num_routers)
         ])
                 
     def forward(self, x, x_0, mask):

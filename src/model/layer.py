@@ -40,15 +40,16 @@ class MaskedInstanceNorm2d(nn.Module):
 
 class Convolution(nn.Module):
     """ Double convolution layer"""
-    def __init__(self, in_dim):
+    def __init__(self, in_dim, num_groups):
         super(Convolution, self).__init__()
         self.channel_in = in_dim
+        self.num_groups = in_dim // 16 if num_groups is None else num_groups # https://arxiv.org/abs/1803.08494
         self.gamma = 1 # self.gamma = nn.Parameter(torch.zeros(1))   
         self.conv = nn.Sequential(
-            nn.InstanceNorm2d(in_dim, affine=True),
+            nn.GroupNorm(num_groups=self.num_groups, num_channels=in_dim),
             nn.SiLU(),
             nn.Conv2d(in_dim, in_dim//2, kernel_size=1, bias=False),
-            nn.InstanceNorm2d(in_dim//2, affine=True),
+            nn.GroupNorm(num_groups=self.num_groups//2, num_channels=in_dim//2),
             nn.SiLU(),
             nn.Conv2d(in_dim//2, in_dim, kernel_size=1, bias=False),
         )
@@ -471,11 +472,11 @@ class RouterV4(nn.Module):
 
 class RouterV5(nn.Module):
     """ Router block V5"""
-    def __init__(self, in_dim:int, heads:int=2, contraction_factor:int=2, dropout:int=0):
-        super(RouterV4, self).__init__()
+    def __init__(self, in_dim:int, num_heads:int=2, num_groups:int=2, contraction_factor:int=2, dropout:int=0):
+        super(RouterV5, self).__init__()
         self.channel_in = in_dim
-        self.attention = CrossMultiHeadAttention(in_dim, heads, contraction_factor)
-        self.convolution = Convolution(in_dim)
+        self.attention = CrossMultiHeadAttention(in_dim, num_heads, contraction_factor)
+        self.convolution = Convolution(in_dim, num_groups)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, mask):

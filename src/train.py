@@ -295,7 +295,7 @@ if __name__ == '__main__':
     # model = net.RouteNetV2(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers, dropout=params.dropout_rate).to(params.device)
     # model = net.RouteNetV3(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers, dropout=params.dropout_rate).to(params.device)
     # model = net.RouteNetV4(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers, dropout=params.dropout_rate).to(params.device)
-    model = net.RouteNetV5(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers, num_heads=params.num_heads, contraction_factor=params.contraction_factor, dropout=params.dropout_rate).to(params.device)
+    model = net.RouteNetV5(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers, num_heads=params.num_heads, num_groups=params.num_groups, contraction_factor=params.contraction_factor, dropout=params.dropout_rate).to(params.device)
     optimizer = optim.Adam(model.parameters(), lr=params.learning_rate)
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=params.step_size, gamma=params.gamma) 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=params.factor, patience=params.patience)

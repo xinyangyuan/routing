@@ -62,6 +62,41 @@ class LabelSmoothingNLLLoss(torch.nn.Module):
     def reduce_loss(loss, reduction='mean'):
         return loss.mean() if reduction=='mean' else loss.sum() if reduction=='sum' else loss
 
+class EditDistanceLoss(torch.nn.Module):
+    """ Pseudo-edit distance Loss.
+    """
+    
+    def __init__(self, ignore_index:int=-100):
+        super().__init__()
+        self.ignore_index =ignore_index
+    
+    def forward(self, output, target, travel_time):
+        """
+        Args :
+            output: (torch.Tensor) model prediction reshaped (batch_m * n, n) (n == max_num_stops)
+            target: (torch.Tensor) target labels (batch_m * n)
+            travel_time: (torch.Tensor) travel time between stop-pair (batch_m * n, n)
+        """
+
+        # [78, 78, 89, 88, 79, 89]
+        # [1,23,33,44,33,223,334,32]
+        # travel_time [78][80] 
+
+        # Number of stops/classes
+        c = output.size()[-1]
+
+        # Remove index
+        loss = -output[target != self.ignore_index] # remove padded starting-stops
+        loss[loss == 1e20] = 0 # remove masked stops from F.log_softmax()
+
+        # Calculate H(u,p) and H(q,p)
+        loss = self.reduce_loss(loss.sum(dim=-1), self.reduction) # H(u,p)
+        nll = F.nll_loss(output, target, reduction=self.reduction, ignore_index=self.ignore_index) # H(q,p)
+
+        # (1-ε) * H(q,p) + ε * H(u,p)
+        return (1-self.ε)*nll + self.ε*(loss/c) 
+    
+
 if __name__ == "__main__":
     
     loss = LabelSmoothingNLLLoss(ignore_index=-100)
