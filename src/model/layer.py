@@ -324,13 +324,14 @@ class CrossAttention(nn.Module):
 
 class CrossMultiHeadAttention(nn.Module):
     """Cross multi-head attention layer"""
-    def __init__(self, in_dim:int, heads:int=2, contraction_factor:int=2):
+    def __init__(self, in_dim:int, heads:int=2, num_groups:int=2, contraction_factor:int=2):
         super(CrossMultiHeadAttention, self).__init__()
         self.channel_in = in_dim
         self.heads = heads
+        self.num_groups = num_groups
         self.alpha = contraction_factor
         self.gamma = 1  # self.gamma = nn.Parameter(torch.zeros(1))
-        self.norm = nn.InstanceNorm2d(in_dim, affine=True) 
+        self.norm = nn.GroupNorm(num_groups=num_groups, num_channels=in_dim) 
         self.qkv = nn.Conv2d(in_dim, 2 * (in_dim//self.alpha) + in_dim, kernel_size=1, bias=False)
 
         assert heads < in_dim, "number of attention-heads has to be less than the router dimension"
@@ -475,7 +476,7 @@ class RouterV5(nn.Module):
     def __init__(self, in_dim:int, num_heads:int=2, num_groups:int=2, contraction_factor:int=2, dropout:int=0):
         super(RouterV5, self).__init__()
         self.channel_in = in_dim
-        self.attention = CrossMultiHeadAttention(in_dim, num_heads, contraction_factor)
+        self.attention = CrossMultiHeadAttention(in_dim, num_heads, num_groups, contraction_factor)
         self.convolution = Convolution(in_dim, num_groups)
         self.dropout = nn.Dropout(dropout)
 
