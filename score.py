@@ -141,7 +141,7 @@ def evaluate(actual_routes_json,submission_json,cost_matrices_json, invalid_scor
     scores={'submission_score':'x','route_scores':{},'route_feasibility':{}}
     for kwarg in kwargs:
         scores[kwarg]=kwargs[kwarg]
-    for route in actual_routes:
+    for route in submission:
         if route not in submission:
             scores['route_scores'][route]=invalid_scores[route]
             scores['route_feasibility'][route]=False
