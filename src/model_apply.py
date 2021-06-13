@@ -58,7 +58,7 @@ for batch in dataloader:
 
     # perform sequence search
     start_node = stop_ids.index(station_id)
-    sequence = beam_search.beam_search(start_node=start_node, weight_matrix=np.exp(output)*50, num_beam=int(output.size(0))).tolist()
+    sequence = beam_search.beam_search(start_node=start_node, weight_matrix=np.exp(output)*50, num_beam=int(1*output.shape[0])).tolist()
     output_dict = {
        stop_id:sequence.index(i) for i, stop_id in enumerate(stop_ids)
     }
