@@ -321,6 +321,124 @@ class CrossAttention(nn.Module):
     def INF(B:int,H:int,W:int):
         return -torch.diag(torch.tensor(float("inf")).repeat(H),0).unsqueeze(0).repeat(B*W,1,1)
 
+class CrossMultiHeadAttention(nn.Module):
+    """Cross multi-head attention layer"""
+    def __init__(self, in_dim:int, heads:int=2, contraction_factor:int=2):
+        super(CrossMultiHeadAttention, self).__init__()
+        self.channel_in = in_dim
+        self.heads = heads
+        self.alpha = contraction_factor
+        self.gamma = 1  # self.gamma = nn.Parameter(torch.zeros(1))
+        self.norm = nn.InstanceNorm2d(in_dim, affine=True) 
+        self.qkv = nn.Conv2d(in_dim, 2 * (in_dim//self.alpha) + in_dim, kernel_size=1, bias=False)
+
+        assert heads < in_dim, "number of attention-heads has to be less than the router dimension"
+        assert heads < in_dim//contraction_factor, "number of attention-heads has to be less than the router_dimension // contraction_factor "
+
+    def forward(self, x, mask):
+        """
+        Args :
+            x : input feature maps (batch_m, c, n, n) (n == max_num_stops)
+            mask: input feature masks (batch_m, n, n)
+        Returns :
+            out : self attention value + input feature (batch_m, c, n, n)
+            energy: energy values (batch_m, h, w, h+w) height==width==n
+        """
+
+        m_batch, C, height, width = x.size() # height==width==n
+
+        # Normalization across channels
+        out = self.norm(x) # (batch_m, C, h, w)
+        out = self.qkv(out)  # (batch_m, C//a + C//a + C, h, w)
+        queries, keys, values = torch.split(out, [self.channel_in//self.alpha,  self.channel_in//self.alpha,  self.channel_in], dim=1) # (batch_m, C//a, h, w), (batch_m, C//a, h, w), (batch_m, C, h, w)
+
+        # Split into-heads
+        queries = queries.view(m_batch, self.heads, -1, height, width) # (batch_m, C//a, h, w) -> (batch_m, heads, C_head//a, h, w)
+        keys = keys.view(m_batch, self.heads, -1, height, width)       # (batch_m, C//a, h, w) -> (batch_m, heads, C_head//a, h, w)
+        values = values.view(m_batch, self.heads, -1, height, width)   # (batch_m, C//a, h, w) -> (batch_m, heads, C_head, h, w)
+
+        # Queries
+        queries_H = (
+            queries.permute(0,1,4,2,3).contiguous()                 # (batch_m, heads, C_head//a, h, w) -> (batch_m, heads, w, C_head//a, h)
+                   .view(m_batch*self.heads*width, -1, height)      # (batch_m, heads, w, C_head//a, h) -> (batch_m * heads * w, C_head//a, h)
+                   .permute(0, 2, 1)                                # (batch_m * heads * w, C_head//a, h) -> (batch_m * heads * width, h, C_head//a)
+        )
+        queries_W = (
+            queries.permute(0,1,3,2,4).contiguous()                 # (batch_m, heads, C_head//a, h, w) -> (batch_m, heads, h, C_head//a, w)
+                   .view(m_batch*self.heads*height, -1, width)      # (batch_m, heads, h, C_head//a, w) -> (batch_m * heads * h, C_head//a, w)
+                   .permute(0, 2, 1)                                # (batch_m * heads * h, C_head//a, w) -> (batch_m * heads * h, w, C_head//a)
+        )
+
+        # Keys
+        keys_H = (
+            keys.permute(0,1,4,2,3).contiguous()                    # (batch_m, heads, C_head//a, h, w) -> (batch_m, heads, w, C_head//a, h)
+                .view(m_batch*self.heads*width, -1, height)         # (batch_m, heads, w, C_head//a, h) -> (batch_m * heads * w, C_head//a, h)
+        )
+        keys_W = (
+            keys.permute(0,1,3,2,4).contiguous()                    # (batch_m, heads, C_head//a, h, w) -> (batch_m, heads, h, C_head//a, w)
+                .view(m_batch*self.heads*height, -1, width)         # (batch_m, heads, h, C_head//a, w) -> (batch_m * heads * h, C_head//a, w)
+        )
+
+        # Values
+        values_H = (
+            values.permute(0,1,4,2,3).contiguous()                   # (batch_m, heads, C_head, h, w) -> (batch_m, heads, w, C_head, h)
+                  .view(m_batch*self.heads*width, -1, height)        # (batch_m, heads, w, C_head, h) -> (batch_m * heads * w, C_head, h)
+        )
+        values_W = (
+            values.permute(0,1,3,2,4).contiguous()                   # (batch_m, heads, C_head, h, w) -> (batch_m, heads, h, C_head, w)
+                  .view(m_batch*self.heads*height, -1, width)        # (batch_m, heads, h, C_head, w) -> (batch_m * heads * h, C_head, w)
+        )
+
+        # Energy
+        energy_H = (
+            (torch.bmm(queries_H, keys_H) + self.INF(m_batch*self.heads, height, width)) # (batch_m * heads * width, h, h) 
+            .view(m_batch, self.heads, width, height, height)       # (batch_m * heads * width, h, h) -> (batch_m, heads, width, h, h)
+            .permute(0,1,3,2,4)                                     # (batch_m, heads, width, h, h) -> (batch_m, heads, h, width, h)
+        )
+        energy_W = (
+             torch.bmm(queries_W, keys_W)                           # (batch_m * heads * h, w, w)
+                  .view(m_batch, self.heads, height, width, width)  # (batch_m * heads * h, w, w) -> (batch_m, heads, h, w, w)
+        )
+        energy = torch.cat([energy_H, energy_W], -1)                # (batch_m, heads, h, w, h+w)
+
+        if mask is not None:
+            energy = energy.masked_fill(mask.unsqueeze(-1).unsqueeze(1) == 0, float("-1e20")) # (batch_m, heads, h, w, h+w)
+
+        # Attention
+        att = torch.softmax(energy, dim=-1)     # (batch_m, heads, h, w, h+w)
+        att_H = (
+            att[:,:,:,:,0:height]               # (batch_m, heads, h, w, h)
+            .permute(0,1,3,2,4).contiguous()    # (batch_m, heads, w, h, h)
+            .view(m_batch*self.heads*width, height, height) # (batch_m * heads * w, h, h)
+        )
+        att_W = (
+            att[:,:,:,:,height:height+width]    # (batch_m, heads, h, w, w)
+            .contiguous()
+            .view(m_batch*self.heads*height, width, width) # (batch_m * heads * h, w, w)
+        )
+
+        # Out
+        out_H = (
+            torch.bmm(values_H, att_H.permute(0, 2, 1))    # (batch_m * heads * w, C_head, h)
+                 .view(m_batch,self.heads,width,-1,height) # (batch_m, heads, w, C_head, h)
+                 .permute(0,1,3,4,2).contiguous()          # (batch_m, heads, w, C_head, h) -> (batch_m, heads, C_head, h, w)
+                 .view(m_batch, -1, height, width)         # (batch_m, heads, w, C_head, h) -> (batch_m, C, h, w)
+        )
+        out_W = (
+            torch.bmm(values_W, att_W.permute(0, 2, 1))    # (batch_m * heads * h, C_head, w)
+                 .view(m_batch,self.heads,height,-1,width) # (batch_m, heads, h, C_head, w)
+                 .permute(0,1,3,2,4).contiguous()          # (batch_m, heads, h, C_head, w) -> (batch_m, heads, C_head, h, w)
+                 .view(m_batch, -1, height, width)         # (batch_m, heads, C_head, h, w) -> (batch_m, C, h, w)
+        )
+
+        out = out_H + out_W # (batch_m, C, h, w)
+
+        return out + x, energy
+    
+    @staticmethod
+    def INF(B:int,H:int,W:int):
+        return -torch.diag(torch.tensor(float("inf")).repeat(H),0).unsqueeze(0).repeat(B*W,1,1)
+
 class Router(nn.Module):
     """ Router block"""
     def __init__(self, in_dim, summary_dim=-1, dropout=0):
@@ -337,11 +455,26 @@ class Router(nn.Module):
         return out
 
 class RouterV4(nn.Module):
-    """ Router block"""
+    """ Router block V4"""
     def __init__(self, in_dim, dropout=0):
         super(RouterV4, self).__init__()
         self.channel_in = in_dim
         self.attention = CrossAttention(in_dim)
+        self.convolution = Convolution(in_dim)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, mask):
+        out, _ = self.attention(x, mask)
+        out = self.convolution(out)
+        out = self.dropout(out)
+        return out
+
+class RouterV5(nn.Module):
+    """ Router block V5"""
+    def __init__(self, in_dim:int, heads:int=2, contraction_factor:int=2, dropout:int=0):
+        super(RouterV4, self).__init__()
+        self.channel_in = in_dim
+        self.attention = CrossMultiHeadAttention(in_dim, heads, contraction_factor)
         self.convolution = Convolution(in_dim)
         self.dropout = nn.Dropout(dropout)
 

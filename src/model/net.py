@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.types import Number
 
-from model.layer import InputFusion, SelfAttention, Router, RouterV4, Mixer
+from model.layer import InputFusion, SelfAttention, Mixer, Router, RouterV4, RouterV5
 
 class RouteNet(nn.Module):
     """ RouteNet"""
@@ -132,7 +132,7 @@ class RouteNetV3(nn.Module):
         return out
 
 class RouteNetV4(nn.Module):
-    """ RouteNet"""
+    """ RouteNet V4"""
     def __init__(self, in_dim=42, in_dim_0=9, router_embbed_dim=128, num_routers=16, dropout=0):
         super(RouteNetV4, self).__init__()
         self.input_size = in_dim
@@ -148,6 +148,56 @@ class RouteNetV4(nn.Module):
         )
         self.routers = nn.ModuleList([
             RouterV4(router_embbed_dim, dropout) for _ in range(num_routers)
+        ])
+                
+    def forward(self, x, x_0, mask):
+        """
+        Args :
+            x : input feature maps (batch_m, n, n, num_1d_features + num_2d_features) (n == max_num_stops)
+            x_0: auxilary route-level input (batch_m, num_0d_features)
+            mask: input feature masks (batch_m, n, n)
+        Returns :
+            out : log_softmax prediction (batch_m, n, n)
+        """
+
+        # Input layer
+        x = x.permute(0,3,1,2)          # (batch_m, input_size, n, n)        
+        out = self.inp_layer(x, x_0)    # (batch_m, C, n, n)
+        
+        # Router layers
+        for router in self.routers:
+            out = router(out, mask)
+
+        # Output layer
+        # note: log_softmax provides numerical stability, which log(0) is kept at
+        # value of float("1e-20") instead of output -inf or nan.
+        out = self.out_layer(out).squeeze(1)  # (batch_m, 1, n, n) -> (batch_m, n, n)
+
+        if mask is not None:
+            out = out.masked_fill(mask == 0, float("-1e20"))
+
+        out = nn.functional.log_softmax(out, dim=-1)
+        return out
+    
+class RouteNetV5(nn.Module):
+    """ RouteNet V5"""
+    def __init__(self, in_dim=42, in_dim_0=9, router_embbed_dim=128, num_routers=16, num_heads=2, contraction_factor=2, dropout=0):
+        super(RouteNetV5, self).__init__()
+        self.input_size = in_dim
+        self.channel_in = in_dim
+        self.router_embbed_dim = router_embbed_dim # C
+        self.num_routers = num_routers
+        self.num_heads = num_heads
+        self.contraction_factor = contraction_factor
+   
+        self.inp_layer = InputFusion(in_dim, in_dim_0, router_embbed_dim)
+        self.out_layer = nn.Sequential(
+            nn.Conv2d(router_embbed_dim, router_embbed_dim//2, kernel_size=1),
+            nn.SiLU(),
+            nn.Conv2d(router_embbed_dim//2, 1, kernel_size=1),
+        )
+        self.routers = nn.ModuleList([
+            RouterV5(in_dim=router_embbed_dim, heads=num_heads, contraction_factor=contraction_factor, dropout=dropout) for _ in range(num_routers)
         ])
                 
     def forward(self, x, x_0, mask):
