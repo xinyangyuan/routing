@@ -13,6 +13,7 @@ scipy = "^1.6.3"
 torch = "^1.8.1"
 tqdm = "^4.61.0"
 ortools = "^9.0.9048"
+timezonefinder = "^5.2.0"
 
 [tool.poetry.dev-dependencies]
 autopep8 = "^1.5.7"

@@ -6,7 +6,7 @@ from model.layer import InputFusion, SelfAttention, Mixer, Router, RouterV4, Rou
 
 class RouteNet(nn.Module):
     """ RouteNet"""
-    def __init__(self, in_dim=42, router_embbed_dim=128, num_routers=16, dropout=0):
+    def __init__(self, in_dim=43, router_embbed_dim=128, num_routers=16, dropout=0):
         super(RouteNet, self).__init__()
         self.input_size = in_dim
         self.channel_in = in_dim
@@ -49,7 +49,7 @@ class RouteNet(nn.Module):
 
 class RouteNetV2(nn.Module):
     """ RouteNet with mixer"""
-    def __init__(self, in_dim=42, router_embbed_dim=128, num_routers=16, dropout=0):
+    def __init__(self, in_dim=43, router_embbed_dim=128, num_routers=16, dropout=0):
         super(RouteNetV2, self).__init__()
         self.input_size = in_dim
         self.channel_in = in_dim
@@ -92,7 +92,7 @@ class RouteNetV2(nn.Module):
 
 class RouteNetV3(nn.Module):
     """ RouteNet"""
-    def __init__(self, in_dim=42, in_dim_0=9, router_embbed_dim=128, num_routers=16, dropout=0):
+    def __init__(self, in_dim=43, in_dim_0=21, router_embbed_dim=128, num_routers=16, dropout=0):
         super(RouteNetV3, self).__init__()
         self.input_size = in_dim
         self.channel_in = in_dim
@@ -133,7 +133,7 @@ class RouteNetV3(nn.Module):
 
 class RouteNetV4(nn.Module):
     """ RouteNet V4"""
-    def __init__(self, in_dim=42, in_dim_0=9, router_embbed_dim=128, num_routers=16, dropout=0):
+    def __init__(self, in_dim=43, in_dim_0=21, router_embbed_dim=128, num_routers=16, dropout=0):
         super(RouteNetV4, self).__init__()
         self.input_size = in_dim
         self.channel_in = in_dim
@@ -181,7 +181,7 @@ class RouteNetV4(nn.Module):
     
 class RouteNetV5(nn.Module):
     """ RouteNet V5"""
-    def __init__(self, in_dim=42, in_dim_0=9, router_embbed_dim=128, num_routers=16, num_heads=2, num_groups=2, contraction_factor=2, dropout=0):
+    def __init__(self, in_dim=43, in_dim_0=21, router_embbed_dim=128, num_routers=16, num_heads=2, num_groups=2, contraction_factor=2, dropout=0):
         super(RouteNetV5, self).__init__()
         self.input_size = in_dim
         self.channel_in = in_dim

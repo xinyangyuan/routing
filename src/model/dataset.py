@@ -9,8 +9,11 @@ from pathlib import Path
 import torch
 import numpy as np
 import pandas as pd
+import pytz
+import timezonefinder
 from scipy import spatial
 from torch.utils.data import Dataset, DataLoader
+from pandas.tseries.holiday import USFederalHolidayCalendar
 
 class Sample(typing.NamedTuple):
     route_id:str    
@@ -104,14 +107,7 @@ class RoutingDataset(Dataset):
         lat_matrix, lng_matrix, travel_distance = self.get_lat_lng_distance_matrices(stops)
 
         # inputs/features
-        input_0d = np.array((
-            *self.hash_str_to_list(route.station_code), # list[int] -> int,int,int,int
-            route.depature_timestamp_utc,
-            route.executor_capacity_cm3,
-            int(route.route_score == "High"),   # int
-            int(route.route_score == "Medium"), # int
-            int(route.route_score == "Low"),    # int
-        )) # (num_0d_features, )
+        input_0d = self.get_route_embedding(route) # (num_0d_features, )
 
         input_1d = np.column_stack((
             stop_embeddings,        # list[np.ndarray]
@@ -212,6 +208,7 @@ class RoutingDataset(Dataset):
         # transformation
         if transform:
             # (1) add depature_timestamp_utc column (dtype=int64)
+            # https://stackoverflow.com/questions/40881876/python-pandas-convert-datetime-to-timestamp-effectively-through-dt-accessor
             route_df['depature_timestamp_utc'] = pd.to_datetime(route_df.date_YYYY_MM_DD + ' ' + route_df.departure_time_utc )
             route_df['depature_timestamp_utc'] = route_df['depature_timestamp_utc'].astype('int64')  // 10**9
             # (2) add route_score col if not exist (apply-dataset does not contain route-score)
@@ -219,6 +216,67 @@ class RoutingDataset(Dataset):
                 route_df["route_score"] = "High" 
         
         return route_df
+    
+    @staticmethod
+    def get_route_embedding(route) -> np.ndarray:
+        """
+        Embedding of package among stops in the route
+        Args:
+            route (pd.Series): Pandas series store current route's info 
+        Return:
+            stop_embeddings (np.ndarray): route_embedding ndarray (21, )
+        """
+
+        # UTC timestamp 
+        timestamp = route.depature_timestamp_utc # int
+        date = datetime.datetime.fromtimestamp(timestamp) # datetime.datetime
+
+        # Get local-time
+        # (1) https://stackoverflow.com/questions/15742045/getting-time-zone-from-lat-long-coordinates
+        tf = timezonefinder.TimezoneFinder()
+        stop = list(route["stops"].values())[0] # first stop in the route
+        lat, lng = stop["lat"], stop["lng"]
+        timezone_str = tf.timezone_at(lat=lat, lng=lng) # str
+
+        # (2) https://stackoverflow.com/questions/4563272/how-to-convert-a-utc-datetime-to-a-local-datetime-using-only-standard-library
+        if timezone_str is not None:
+            timezone = pytz.timezone(timezone_str) # DstTzInfo type
+            date = date.replace(tzinfo=datetime.timezone.utc).astimezone(tz=timezone)
+
+        # Extract useful features
+        # (1) raw feature
+        year = date.year
+        month = date.month
+        day_of_month = date.day
+        hour = date.hour
+        minute = date.minute
+        second = date.second
+        date_name = date.strftime("%A") # "Monday", "Tuesday"... "Sunday"
+        day_part: typing.List[int] = RoutingDataset.daypart(hour)
+
+        # (2) derived feature
+        # holiday: https://stackoverflow.com/questions/2394235/detecting-a-us-holiday
+        cal = USFederalHolidayCalendar()
+        holidays: typing.List[datetime.datetime] = cal.holidays(start=f"{year}-01-01", end=f"{year}-12-31").to_pydatetime()
+        is_holiday = True if date in holidays else False
+        is_weekend = True if date_name in ["Saturday","Sunday"] else False
+        departure_time_sec = second + minute * 60 + hour * 60 * 60
+
+        return np.array((
+            *RoutingDataset.hash_str_to_list(route.station_code), # list[int] -> int,int,int,int
+            year,                               # int
+            month,                              # int
+            day_of_month,                       # int (1, 31)
+            hour,                               # int (0, 23)
+            *day_part,                          # List[int] -> int,int,int,int,int,int
+            departure_time_sec,                 # int (0, 86400)
+            int(is_weekend),                    # int (0, 1)
+            int(is_holiday),                    # int
+            route.executor_capacity_cm3,        # int
+            int(route.route_score == "High"),   # int
+            int(route.route_score == "Medium"), # int
+            int(route.route_score == "Low"),    # int
+        )) # (num_0d_features, )
     
     @staticmethod
     def get_stop_embeddings(stops: dict) -> typing.List[np.ndarray]:
@@ -260,9 +318,18 @@ class RoutingDataset(Dataset):
             stops (dict): Dict stores all stops' information {stop_id -> {lat, lng, type, zone_id}}
             route_packages (dict): {stop_id -> {package_id -> {lat, lng, type, zone_id}}}
         Return:
-            stop_embeddings (np.ndarray[]): List of stop_embedding ndarray (1+1+27+1, )
+            stop_embeddings (np.ndarray[]): List of stop_embedding ndarray (9, )
         """
+
         stop_package_embeddings = []
+
+        # get local timezone
+        # https://stackoverflow.com/questions/15742045/getting-time-zone-from-lat-long-coordinates
+        tf = timezonefinder.TimezoneFinder() 
+        stop = list(stops.values())[0] # first stop in the route
+        lat, lng = stop["lat"], stop["lng"]
+        timezone_str = tf.timezone_at(lat=lat, lng=lng) # str
+        timezone = pytz.timezone(timezone_str) or datetime.timezone.utc
 
         # loop through all stops in the route
         for stop_id in stops.keys():
@@ -277,6 +344,7 @@ class RoutingDataset(Dataset):
             width_cm = 0
             depth_cm = 0
             planned_service_time_seconds = 0
+            scan_status = True # default to delivered
             
             # loop through all packages
             for package in stop_packages.values():
@@ -287,6 +355,9 @@ class RoutingDataset(Dataset):
                 package_depth = package["dimensions"]["depth_cm"]
                 package_volume = package_height * package_width * package_depth
                 package_planned_service_time_seconds = package["planned_service_time_seconds"]
+                if "scan_status" in package:
+                    # set scan_status to False if any package fails to deliver
+                    scan_status = (package["scan_status"] == "DELIVERED") and scan_status 
 
                 # accumulate package info
                 num_packages += 1
@@ -307,17 +378,30 @@ class RoutingDataset(Dataset):
                     end_time = datetime.datetime.strptime(end_time_str, "%Y-%m-%d %H:%M:%S")
                     package_end_timestamp = end_time.timestamp()
                     end_timestamp = package_end_timestamp if end_timestamp == 0 else min(end_timestamp, package_end_timestamp)
+            
+            # Convert time-stamp
+            # (1) time in utc
+            start_time = datetime.datetime.fromtimestamp(start_timestamp)
+            end_time = datetime.datetime.fromtimestamp(end_timestamp)
+            
+            # (2) time in local timezone
+            start_time = start_time.replace(tzinfo=datetime.timezone.utc).astimezone(tz=timezone)
+            end_time = end_time.replace(tzinfo=datetime.timezone.utc).astimezone(tz=timezone)
+            
+            start_time_sec = start_time.second + start_time.minute * 60 + start_time.hour * 3600
+            end_time_sec = end_time.second + end_time.minute * 60 + end_time.hour * 3600 
 
             # append current stop's package embedding to stop_package_embeddings list
             stop_package_embedding = np.array([
                 num_packages,                                 # int
-                start_timestamp/route.depature_timestamp_utc, # float
-                end_timestamp/route.depature_timestamp_utc,   # float
+                start_time_sec,                               # int
+                end_time_sec,                                 # int
                 volume_cm3/route.executor_capacity_cm3,       # float
                 height_cm/route.executor_capacity_cm3,        # float
                 width_cm/route.executor_capacity_cm3,         # float
                 depth_cm/route.executor_capacity_cm3,         # float
-                planned_service_time_seconds,                 #int
+                planned_service_time_seconds,                 # int
+                int(scan_status)                              # int
             ])
             stop_package_embeddings.append(stop_package_embedding)
 
@@ -429,6 +513,31 @@ class RoutingDataset(Dataset):
             out[i] = hash(character) % (2**16) / (2**16) # has range [0,1)
 
         return out
+    
+    @staticmethod
+    def daypart(hour:int, one_hot:bool=True) -> typing.Union[str, typing.List[int]]:
+        """
+        Get day part of a day, e.g., Morning, Dawn
+        Args:
+            hour (int): A integer from 0-24 want to encode
+            one_hot (bool): Return in string or one_hot format (default: True)
+        Return:
+            out (string || List[float]): Dawn or [1,0,0,0,0,0]; "Morning" or [0,1,0,0,0,0]
+        """
+
+        if hour in [2,3,4,5]:
+            return [1,0,0,0,0,0] if one_hot else "Dawn" 
+        elif hour in [6,7,8,9]:
+            return [0,1,0,0,0,0] if one_hot else "Morning"
+        elif hour in [10,11,12,13]:
+            return [0,0,1,0,0,0] if one_hot else "Noon"
+        elif hour in [14,15,16,17]:
+            return [0,0,0,1,0,0] if one_hot else "Afternoon"
+        elif hour in [18,19,20,21]:
+            return [0,0,0,0,1,0] if one_hot else "Evening"
+        else: 
+            return [0,0,0,0,0,1] if one_hot else "Midnight"
+
 
 class RandomPermute(object):
     """Permute randomly the stop sequence in a sample."""
@@ -634,3 +743,9 @@ def get_dataset(stages, data_dir=None):
     return datasets
 
 
+if __name__ == "__main__":
+    print("Creating datasets...")
+    datasets = get_dataset(["build", "apply"])
+    print("Datasets created successfuly!")
+
+    print("First sample from build dataset:", datasets["build"][0])

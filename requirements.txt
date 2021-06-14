@@ -203,6 +203,9 @@ scipy==1.6.3; python_version >= "3.7" and python_version < "3.10" \
 six==1.16.0; python_full_version >= "3.7.1" and python_version >= "3.7" and (python_version >= "2.7" and python_full_version < "3.0.0" or python_full_version >= "3.3.0") \
     --hash=sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254 \
     --hash=sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926
+timezonefinder==5.2.0; python_version >= "3.6" \
+    --hash=sha256:4545533086eb25cd7ba10b97785059acbababf4577ab1b4d5c2ab56642eadfea \
+    --hash=sha256:a374570295a8dbd923630ce85f754e52578e288cb0a9cf575834415e84758352
 torch==1.8.1; python_full_version >= "3.6.2" \
     --hash=sha256:f23eeb1a48cc39209d986c418ad7e02227eee973da45c0c42d36b1aec72f4940 \
     --hash=sha256:4ace9c5bb94d5a7b9582cd089993201658466e9c59ff88bd4e9e08f6f072d1cf \
