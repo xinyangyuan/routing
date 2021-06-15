@@ -39,10 +39,12 @@ apply_dataset = datasets["apply"]
 collate_fn = dataset.get_collate_fn(stage="apply", params=params)
 dataloader = dataset.DataLoader(apply_dataset, batch_size=1, collate_fn=collate_fn)
 
+
+# Model Apply Output
 print('Calculating Sequence...')
 start = time.time()
 invalid = 0
-# Model Apply Output
+
 for batch in dataloader:
     
     # load batch data
@@ -95,10 +97,11 @@ for batch in dataloader:
         })
         file.seek(0)
         json.dump(data, file)
+
 end = time.time()
+
 print("Elapsed = %s" % (end - start))
 print ("Invalid Results (Revert to BeamSearch):", invalid)
-
 
 # Finish Apply
 print("Done!")

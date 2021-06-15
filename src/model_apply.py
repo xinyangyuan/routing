@@ -1,4 +1,5 @@
 import os, json
+import multiprocessing
 
 import torch
 import numpy as np
@@ -9,6 +10,13 @@ import utils
 import model.net as net
 import model.dataset as dataset
 import beam_search
+
+# Set number of working cpu threads    
+# https://jdhao.github.io/2020/07/06/pytorch_set_num_threads/
+# https://github.com/pytorch/pytorch/issues/7087
+torch.set_num_threads(multiprocessing.cpu_count())
+os.environ['OMP_NUM_THREADS'] = str(multiprocessing.cpu_count())
+os.environ['MKL_NUM_THREADS'] = str(multiprocessing.cpu_count())
 
 # Directory
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
