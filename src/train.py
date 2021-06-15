@@ -154,7 +154,8 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, writer, p
             optimizer.step()
 
             # Scheduler step (step-wise scheduler, e.g., oneCycleLR)
-            scheduler.step(loss.item())
+            # scheduler.step(loss.item())
+            scheduler.step()
             writer.add_scalar('Learning Rate', optimizer.param_groups[0]['lr'], (epoch_counter()-1) * len(dataloader) + i)
 
             # Evaluate summaries only once in a while
@@ -300,8 +301,10 @@ if __name__ == '__main__':
     model = net.RouteNetV5(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers, num_heads=params.num_heads, num_groups=params.num_groups, contraction_factor=params.contraction_factor, dropout=params.dropout_rate).to(params.device)
     optimizer = optim.Adam(model.parameters(), lr=params.learning_rate)
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=params.step_size, gamma=params.gamma) 
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=params.factor, patience=params.patience)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=params.factor, patience=params.patience)
     # scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=params.max_learning_rate, steps_per_epoch=len(train_loader), epochs=params.num_epochs, pct_start=params.anneal_start, div_factor=params.init_div_factor, final_div_factor=params.final_div_factor, anneal_strategy=params.strategy)
+    scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=5e-5, max_lr=2e-3, step_size_up=10, step_size_down=None, mode='exp_range', gamma=0.9994, scale_fn=None, scale_mode='cycle', cycle_momentum=False, last_epoch=-1, verbose=False)
+    
     
     # Define loss function and metrics
     # criterion =  torch.nn.NLLLoss(ignore_index=params.ignore_index)
