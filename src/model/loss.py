@@ -95,6 +95,33 @@ class EditDistanceLoss(torch.nn.Module):
 
         # (1-ε) * H(q,p) + ε * H(u,p)
         return (1-self.ε)*nll + self.ε*(loss/c) 
+
+
+class TimePenalty(torch.nn.Module):
+    """ An added time-penalty for prediction. 
+        The penalty is calculated using KL-Divergence
+    """
+    
+    def __init__(self, ignore_index:int=-100):
+        super().__init__()
+        self.ignore_index =ignore_index
+    
+    def forward(self, output:torch.Tensor, travel_time:torch.Tensor):
+        """
+        Args :
+            output: (torch.Tensor) model prediction reshaped (batch_m, n, n) (n == max_num_stops)
+            travel_time: (torch.Tensor) travel time between stop-pair (batch_m, n, n)
+            target: (torch.Tensor) target labels (batch_m * n)
+        """
+
+        # squash travel_time to range of [0,1]
+        travel_time = (travel_time - travel_time.min(dim=-1, keepdim=True)) / (travel_time.max(dim=-1, keepdim=True) - travel_time.min(dim=-1, keepdim=True))
+        target = 1 - travel_time # target probability
+
+        # penalty
+        penalty = torch.kl_div(output, target)
+
+        return penalty 
     
 
 if __name__ == "__main__":

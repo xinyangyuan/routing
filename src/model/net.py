@@ -243,9 +243,27 @@ def accuracy(outputs, targets) -> Number:
 
     return (torch.sum(preds == targets).float() / len(targets)).item()
 
+def accuracy_tok_k(outputs:torch.Tensor, targets:torch.Tensor, topk:int=5) -> Number:
+    """Computes the accuracy over the k top predictions for the specified values of k"""
+    
+    """
+    Compute top-k accuracy, given the outputs and targets for all images.
+    Args:
+        outputs: (torch.Tensor) dimension (batch_size, num_stops, num_stops) - log softmax output of the model
+        targets: (torch.Tensor) dimension (batch_size, num_stops) - where each example in batch is list-like [2, 1, 3, 6, 4, 5]
+        topk: (int) number of candidates to take (default: 5)
+    Returns: (float) accuracy in [0,1]
+    """
+
+    _log_prop_tk, preds_tk = outputs.reshape(-1, outputs.shape[2]).topk(topk, dim=-1)
+    targets = targets.reshape(-1)
+
+    return (torch.eq(targets[:, None], preds_tk).any(dim=-1).float().mean()).item()
+
 
 # maintain all metrics required in this dictionary- these are used in the training and evaluation loops
 metrics = {
     'accuracy': accuracy,
+    'accuracy_top_5': accuracy_tok_k
     # could add more metrics such as accuracy for each token type
 }

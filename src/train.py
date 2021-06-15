@@ -67,6 +67,7 @@ def train_loop(model, optimizer, scheduler, criterion, metrics, params, model_di
             # issue with hparams https://github.com/pytorch/pytorch/issues/32651
             writer.add_scalar('Validation loss', val_metrics['loss'], epoch * len(train_dataloader))
             writer.add_scalar('Validation acc', val_metrics['accuracy'], epoch * len(train_dataloader))
+            writer.add_scalar('Validation acc (top-5)', val_metrics['accuracy_top_5'], epoch * len(train_dataloader))
             # writer.add_hparams(
             #     {'lr': params.learning_rate,"batch_size": params.batch_size},
             #     {'hparam/accuracy': val_metrics['accuracy'], 'hparam/loss': val_metrics['loss']}
@@ -170,6 +171,7 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, writer, p
                 # write to tensorboard
                 writer.add_scalar('Training loss', summary['loss'], (epoch_counter()-1) * len(dataloader) + i)
                 writer.add_scalar('Training acc', summary['accuracy'], (epoch_counter()-1) * len(dataloader) + i)
+                writer.add_scalar('Training acc (top-5）', summary['accuracy_top_5'], (epoch_counter()-1) * len(dataloader) + i)
 
             # Update the average loss
             loss_avg.update(loss.item())
