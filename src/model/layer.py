@@ -183,7 +183,7 @@ class Mixing(nn.Module):
 
 class Mixer(nn.Module):
     """ Mixer block"""
-    def __init__(self, in_dim, summary_dim=-1, dropout=0):
+    def __init__(self, in_dim, summary_dim=-1, dropout=0.):
         super(Mixer, self).__init__()
         self.channel_in = in_dim
         self.mixing = Mixing(in_dim, summary_dim)
@@ -443,7 +443,7 @@ class CrossMultiHeadAttention(nn.Module):
 
 class Router(nn.Module):
     """ Router block"""
-    def __init__(self, in_dim, summary_dim=-1, dropout=0):
+    def __init__(self, in_dim, summary_dim=-1, dropout=0.):
         super(Router, self).__init__()
         self.channel_in = in_dim
         self.attention = SelfAttention(in_dim, summary_dim)
@@ -458,7 +458,7 @@ class Router(nn.Module):
 
 class RouterV4(nn.Module):
     """ Router block V4"""
-    def __init__(self, in_dim, dropout=0):
+    def __init__(self, in_dim, dropout=0.):
         super(RouterV4, self).__init__()
         self.channel_in = in_dim
         self.attention = CrossAttention(in_dim)
@@ -473,7 +473,7 @@ class RouterV4(nn.Module):
 
 class RouterV5(nn.Module):
     """ Router block V5"""
-    def __init__(self, in_dim:int, num_heads:int=2, num_groups:int=2, contraction_factor:int=2, dropout:int=0):
+    def __init__(self, in_dim:int, num_heads:int=2, num_groups:int=2, contraction_factor:int=2, dropout:float=0.):
         super(RouterV5, self).__init__()
         self.channel_in = in_dim
         self.attention = CrossMultiHeadAttention(in_dim, num_heads, num_groups, contraction_factor)
