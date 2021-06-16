@@ -48,10 +48,10 @@ class Convolution(nn.Module):
         self.conv = nn.Sequential(
             nn.GroupNorm(num_groups=self.num_groups, num_channels=in_dim),
             nn.SiLU(),
-            nn.Conv2d(in_dim, in_dim//2, kernel_size=1, bias=False),
-            nn.GroupNorm(num_groups=self.num_groups//2, num_channels=in_dim//2),
+            nn.Conv2d(in_dim, in_dim*2, kernel_size=1, bias=False),
+            nn.GroupNorm(num_groups=self.num_groups//2, num_channels=in_dim*2),
             nn.SiLU(),
-            nn.Conv2d(in_dim//2, in_dim, kernel_size=1, bias=False),
+            nn.Conv2d(in_dim*2, in_dim, kernel_size=1, bias=False),
         )
 
     def forward(self, x):
@@ -112,7 +112,7 @@ class PositionEncoding(nn.Module):
 
 class InputFusion(nn.Module):
     """ Input fusion layer"""
-    def __init__(self, in_dim:int, in_dim_0:int, router_embbed_dim:int, aux_embbed_dim:int=10):
+    def __init__(self, in_dim:int, in_dim_0:int, router_embbed_dim:int, aux_embbed_dim:int=16):
         """
         Args :
             in_dim (int): input feature maps dimension (num_1d_features + num_2d_features)
@@ -128,10 +128,10 @@ class InputFusion(nn.Module):
         self.norm = nn.InstanceNorm2d(router_embbed_dim)
         self.input = nn.Conv2d(in_dim, router_embbed_dim - aux_embbed_dim, kernel_size=1)
         self.input_0 = nn.Sequential(
-            nn.Linear(in_dim_0, in_dim*aux_embbed_dim//2, bias=False),
+            nn.Linear(in_dim_0, in_dim*aux_embbed_dim, bias=False),
             nn.SiLU(),
-            nn.LayerNorm(in_dim*aux_embbed_dim//2),
-            nn.Linear(in_dim*aux_embbed_dim//2, in_dim*aux_embbed_dim)
+            nn.LayerNorm(in_dim*aux_embbed_dim),
+            nn.Linear(in_dim*aux_embbed_dim, in_dim*aux_embbed_dim)
         )
 
     def forward(self, x, x_0):

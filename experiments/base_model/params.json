@@ -1,26 +1,26 @@
 {
-    "learning_rate": 1e-3,
-    "max_learning_rate": 5e-3,
-    "batch_size": 1,
-    "num_epochs": 200,
+    "learning_rate": 2e-4,
+    "max_learning_rate": 3e-3,
+    "batch_size": 5,
+    "num_epochs": 100,
     
-    "dropout_rate":0.05, 
+    "dropout_rate":0.01, 
     "num_routers": 3,
-    "router_embbed_dim": 128,
+    "router_embbed_dim": 256,
     "num_heads": 8,
-    "num_groups": 8,
-    "contraction_factor": 1,
+    "num_groups": 16,
+    "contraction_factor": 2,
     
     "factor": 0.5,
-    "patience": 50,
+    "patience": 200,
     "save_summary_steps": 2,
     
     "anneal_start": 0.5,
     "init_div_factor": 10,
     "final_div_factor": 100,
-    "max_norm": 1,
+    "max_norm": 0.5,
     
-    "train": 1,
-    "val": 2,
+    "train": 5750,
+    "val": 50,
     "ignore_index": -100
 }
