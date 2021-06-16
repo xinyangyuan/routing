@@ -32,7 +32,7 @@ print('Load Model...')
 params = utils.Params(PARAMS_PATH)
 checkpoint = torch.load(MODEL_PATH)
 
-model = net.RouteNetV4(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers, dropout=params.dropout_rate)
+model = net.RouteNetV5(router_embbed_dim=params.router_embbed_dim, num_routers=params.num_routers, num_heads=params.num_heads, num_groups=params.num_groups, contraction_factor=params.contraction_factor, dropout=params.dropout_rate)
 model.load_state_dict(checkpoint['state_dict'])
 model.eval()
 
