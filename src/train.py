@@ -141,7 +141,11 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, writer, p
             outputs = model(inputs, input_0ds, masks) # (batch_m, max_num_stops, max_num_stops)
 
             # Compute loss
-            loss = criterion(outputs.reshape(-1, outputs.shape[2]), targets.reshape(-1), inputs[:,:,:,-4].reshape(-1, outputs.shape[2]))
+            loss = criterion(
+                outputs.reshape(-1, outputs.shape[2]), 
+                targets.reshape(-1), 
+                inputs[:,:,:,-4].masked_fill(masks == 0, float("1e20")).reshape(-1, outputs.shape[2])
+            )
 
             # Backward pass
             optimizer.zero_grad() # clear previous grads
@@ -222,7 +226,11 @@ def evaluate(model, criterion, dataloader, metrics, params):
 
         # Compute model output
         outputs = model(inputs, input_0ds, masks) # (batch_m, max_num_stops, max_num_stops)
-        loss = criterion(outputs.reshape(-1, outputs.shape[2]), targets.reshape(-1), inputs[:,:,:,-4].reshape(-1, outputs.shape[2]))
+        loss = criterion(
+            outputs.reshape(-1, outputs.shape[2]), 
+            targets.reshape(-1), 
+            inputs[:,:,:,-4].masked_fill(masks == 0, float("1e20")).reshape(-1, outputs.shape[2])
+        )
             
         # Move to cpu
         outputs = outputs.data.cpu()

@@ -123,7 +123,7 @@ class TimePenalty(torch.nn.Module):
         output = output[target != self.ignore_index]
 
         # penalty
-        penalty = torch.kl_div(output, F.softmax(-travel_time, dim=-1))
+        penalty = F.kl_div(output, F.softmax(-travel_time, dim=-1), reduction="batchmean")
 
         return penalty 
     
