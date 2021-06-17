@@ -59,14 +59,14 @@ for batch in dataloader:
     route_id = batch["route_ids"][0]      # str
     station_id = batch['station_ids'][0]  # str
     stop_ids = batch['stop_ids'][0]       # str[]
-
+    print("route_id", batch['route_ids'][0])
     # prediction
     output = model(inputs, input_0ds, masks)
     output = output.squeeze(0).detach().numpy() # (num_stops, num_stops)
 
     # perform sequence search
     start_node = stop_ids.index(station_id)
-    sequence = beam_search.beam_search(start_node=start_node, weight_matrix=np.exp(output)*50, num_beam=int(1*output.shape[0])).tolist()
+    sequence = beam_search.beam_search(start_node=start_node, weight_matrix=np.exp(output)*50, num_beam=1).tolist()
     output_dict = {
        stop_id:sequence.index(i) for i, stop_id in enumerate(stop_ids)
     }

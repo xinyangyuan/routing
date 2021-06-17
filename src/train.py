@@ -141,7 +141,7 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, writer, p
             outputs = model(inputs, input_0ds, masks) # (batch_m, max_num_stops, max_num_stops)
 
             # Compute loss
-            loss = criterion(outputs.reshape(-1, outputs.shape[2]), targets.reshape(-1))
+            loss = criterion(outputs.reshape(-1, outputs.shape[2]), targets.reshape(-1), inputs[:,:,:,-4].reshape(-1, outputs.shape[2]))
 
             # Backward pass
             optimizer.zero_grad() # clear previous grads
@@ -222,7 +222,7 @@ def evaluate(model, criterion, dataloader, metrics, params):
 
         # Compute model output
         outputs = model(inputs, input_0ds, masks) # (batch_m, max_num_stops, max_num_stops)
-        loss = criterion(outputs.reshape(-1, outputs.shape[2]), targets.reshape(-1))
+        loss = criterion(outputs.reshape(-1, outputs.shape[2]), targets.reshape(-1), inputs[:,:,:,-4].reshape(-1, outputs.shape[2]))
             
         # Move to cpu
         outputs = outputs.data.cpu()
@@ -308,7 +308,7 @@ if __name__ == '__main__':
     
     # Define loss function and metrics
     # criterion =  torch.nn.NLLLoss(ignore_index=params.ignore_index)
-    criterion =  loss.LabelSmoothingNLLLoss(ignore_index=params.ignore_index)
+    criterion =  loss.LabelSmoothingNLLLossWithTimePenalty(ignore_index=params.ignore_index)
     metrics = net.metrics
 
     # Train the model

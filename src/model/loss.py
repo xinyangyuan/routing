@@ -106,23 +106,54 @@ class TimePenalty(torch.nn.Module):
         super().__init__()
         self.ignore_index =ignore_index
     
-    def forward(self, output:torch.Tensor, travel_time:torch.Tensor):
+    def forward(self, output:torch.Tensor, target: torch.Tensor, travel_time:torch.Tensor):
         """
         Args :
-            output: (torch.Tensor) model prediction reshaped (batch_m, n, n) (n == max_num_stops)
-            travel_time: (torch.Tensor) travel time between stop-pair (batch_m, n, n)
+            output: (torch.Tensor) model prediction reshaped (batch_m * n, n) (n == max_num_stops)
             target: (torch.Tensor) target labels (batch_m * n)
+            travel_time: (torch.Tensor) travel time between stop-pair (batch_m * n, n)
         """
 
         # squash travel_time to range of [0,1]
-        travel_time = (travel_time - travel_time.min(dim=-1, keepdim=True)) / (travel_time.max(dim=-1, keepdim=True) - travel_time.min(dim=-1, keepdim=True))
-        target = 1 - travel_time # target probability
+        # travel_time = (travel_time - travel_time.min(dim=-1, keepdim=True)) / (travel_time.max(dim=-1, keepdim=True) - travel_time.min(dim=-1, keepdim=True))
+        # target = 1 - travel_time # target probability
+
+        # ignore padding 
+        travel_time = travel_time[target != self.ignore_index]
+        output = output[target != self.ignore_index]
 
         # penalty
-        penalty = torch.kl_div(output, target)
+        penalty = torch.kl_div(output, F.softmax(-travel_time, dim=-1))
 
         return penalty 
     
+class LabelSmoothingNLLLossWithTimePenalty(torch.nn.Module):
+    """ label smoothed CrossEntropy with additional Time Penalty. 
+    """
+
+    def __init__(self, alpha:float=0.1, ignore_index:int=-100):
+        """
+        Args :
+            alpha: (float) the weighting paramter for time penalty
+            ignore_index: (int) token index for padded target
+        """
+
+        super().__init__()
+        self.alpha = alpha
+        self.ignore_index =ignore_index
+        self.label_smooth_nll_loss = LabelSmoothingNLLLoss(ignore_index=ignore_index)
+        self.time_penalty = TimePenalty(ignore_index=ignore_index)
+
+    def forward(self, output:torch.Tensor, target: torch.Tensor, travel_time:torch.Tensor):
+        """
+        Args :
+            output: (torch.Tensor) model prediction reshaped (batch_m * n, n) (n == max_num_stops)
+            target: (torch.Tensor) target labels (batch_m * n)
+            travel_time: (torch.Tensor) travel time between stop-pair (batch_m * n, n)
+        """
+
+        return self.label_smooth_nll_loss(output, target) + self.alpha * self.time_penalty(output, target, travel_time)
+
 
 if __name__ == "__main__":
     
