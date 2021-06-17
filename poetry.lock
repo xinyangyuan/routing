@@ -10,6 +10,14 @@ python-versions = "*"
 six = "*"
 
 [[package]]
+name = "aiofiles"
+version = "0.7.0"
+description = "File support for asyncio."
+category = "main"
+optional = false
+python-versions = ">=3.6,<4.0"
+
+[[package]]
 name = "anyio"
 version = "3.1.0"
 description = "High level compatibility layer for multiple asynchronous event loop implementations"
@@ -1222,12 +1230,16 @@ watchdog = ["watchdog"]
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9,<3.10"
-content-hash = "1dabbfa7f11213dce4f73424f657617bf32298234bf4ab014af8f53e588025ba"
+content-hash = "cd237a20a5f6f36a66aa31ccb1513f5a7c76616e23953493a79c550c376e78c6"
 
 [metadata.files]
 absl-py = [
     {file = "absl-py-0.12.0.tar.gz", hash = "sha256:b44f68984a5ceb2607d135a615999b93924c771238a63920d17d3387b0d229d5"},
     {file = "absl_py-0.12.0-py3-none-any.whl", hash = "sha256:afe94e3c751ff81aad55d33ab6e630390da32780110b5af72ae81ecff8418d9e"},
+]
+aiofiles = [
+    {file = "aiofiles-0.7.0-py3-none-any.whl", hash = "sha256:c67a6823b5f23fcab0a2595a289cec7d8c863ffcb4322fb8cd6b90400aedfdbc"},
+    {file = "aiofiles-0.7.0.tar.gz", hash = "sha256:a1c4fc9b2ff81568c83e21392a82f344ea9d23da906e4f6a52662764545e19d4"},
 ]
 anyio = [
     {file = "anyio-3.1.0-py3-none-any.whl", hash = "sha256:5e335cef65fbd1a422bbfbb4722e8e9a9fadbd8c06d5afe9cd614d12023f6e5a"},

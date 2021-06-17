@@ -1,15 +1,17 @@
 import os, json
 import multiprocessing
+import typing
+import asyncio
 
 import torch
 import numpy as np
-# from ortools.constraint_solver import routing_enums_pb2
-# from ortools.constraint_solver import pywrapcp
+import aiofiles as aiof
+
 
 import utils
 import model.net as net
 import model.dataset as dataset
-import beam_search
+import model.search as search
 
 # Set number of working cpu threads    
 # https://jdhao.github.io/2020/07/06/pytorch_set_num_threads/
@@ -37,7 +39,7 @@ model.load_state_dict(checkpoint['state_dict'])
 model.eval()
 
 model = torch.jit.script(model)
-# torch.jit.save(model, os.path.join(BASE_DIR, 'data/model_build_outputs/model_script.pt'))
+torch.jit.save(model, os.path.join(BASE_DIR, 'data/model_build_outputs/model_script.pt'))
 
 
 # Load Input Data
@@ -50,6 +52,9 @@ dataloader = dataset.DataLoader(apply_dataset, batch_size=1, collate_fn=collate_
 
 
 # Model Apply Output
+tasks : typing.List[search.Task]= []
+
+# loop through dataloader
 for batch in dataloader:
 
     # load batch data
@@ -59,20 +64,62 @@ for batch in dataloader:
     route_id = batch["route_ids"][0]      # str
     station_id = batch['station_ids'][0]  # str
     stop_ids = batch['stop_ids'][0]       # str[]
-    print("route_id", batch['route_ids'][0])
+    num_stops = batch['num_stops'][0]     # int
+    
     # prediction
-    output = model(inputs, input_0ds, masks)
-    output = output.squeeze(0).detach().numpy() # (num_stops, num_stops)
+    output = model(inputs, input_0ds, masks)  # (num_stops, num_stops)
+    output = output.squeeze(0).detach().numpy()
+
+    # append to tasks list
+    tasks.append(search.Task(
+        route_id=route_id,
+        stop_ids=stop_ids,
+        station_id=station_id,
+        num_stops=num_stops,
+        input = inputs.squeeze(0).detach().numpy(),
+        output = output.squeeze(0).detach().numpy()
+    ))
+
+
+# Function to solve task
+async def solve(task: search.Task):
+
+    # unpack arrays from task
+    MAX_TIME = 24*3600*100
+    route_id = task.route_id
+    output = task.output
+    total_stops = task.num_stops
+    start_node = task.stop_ids.index(task.station_id)
 
     # perform sequence search
-    start_node = stop_ids.index(station_id)
-    sequence = beam_search.beam_search(start_node=start_node, weight_matrix=np.exp(output)*50, num_beam=1).tolist()
-    output_dict = {
-       stop_id:sequence.index(i) for i, stop_id in enumerate(stop_ids)
-    }
+    # df_dist = (1/np.exp(output))
+    # df_dist = (-output)**2.4 # best 2
+    # df_dist = (-output)**2.4*1.46 # best 1
+    df_dist = (-output)**2.4
+    total_stops = len(df_dist)
+    
+    # or search
+    sequence = search.or_search(df_dist, start_node, MAX_TIME, total_stops)
+    
+    # generate sequence
+    if sequence is None:
+        # Beam Search
+        sequence = search.beam_search(
+            start_node=start_node, weight_matrix=np.exp(output)*50, num_beam=int(1*output.shape[0])
+        ).tolist()
+        
+        output_dict = {
+           stop_id:sequence.index(i) for i, stop_id in enumerate(stop_ids)
+        }
+        
+        # invalid += 1
+    else: 
+        output_dict = {
+           stop_id:sequence[i] for i, stop_id in enumerate(stop_ids)
+        }
 
-    # append to proposed_sequences.json
-    with open(OUTPUT_PATH, "r+") as file:
+    # write to file
+    async with aiof.open(OUTPUT_PATH, mode='a') as file:
         data = json.load(file)
         data.update({
             route_id:{
@@ -82,6 +129,14 @@ for batch in dataloader:
         file.seek(0)
         json.dump(data, file)
 
+# Run tasks
+loop = asyncio.get_event_loop()
+loop.run_until_complete(
+    asyncio.gather(
+        *[solve(task) for task in tasks]
+    )
+)
+loop.close()
 
 # Finish Apply
 print("Done!")
