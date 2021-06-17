@@ -39,7 +39,7 @@ model.load_state_dict(checkpoint['state_dict'])
 model.eval()
 
 model = torch.jit.script(model)
-torch.jit.save(model, os.path.join(BASE_DIR, 'data/model_build_outputs/model_script.pt'))
+# torch.jit.save(model, os.path.join(BASE_DIR, 'data/model_build_outputs/model_script.pt'))
 
 
 # Load Input Data
@@ -98,7 +98,7 @@ async def solve(task: search.Task):
     df_dist = (-output)**2.4
     total_stops = len(df_dist)
     
-    # or search
+    # or search TODO ERROR_BOUND
     sequence = search.or_search(df_dist, start_node, MAX_TIME, total_stops)
     
     # generate sequence
