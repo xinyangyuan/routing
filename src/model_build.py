@@ -142,7 +142,10 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, params):
                 is_best = accuracy >= best_accuracy
 
                 metrics_to_save = {metric: np.mean([x[metric] for x in summ]) for metric in summ[0]}
+                metrics_string = " ; ".join("{}: {:05.3f}".format(k, v) for k, v in metrics_to_save.items())
                 metrics_type = "train"
+
+                logging.info("- Train metrics: " + metrics_string)
 
                 # Save most recent metrics
                 last_json_path = os.path.join(OUTPUT_DIR, f"metrics_{metrics_type}_last_weights.json")
