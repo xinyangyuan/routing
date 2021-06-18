@@ -207,14 +207,9 @@ if __name__ == '__main__':
 
     datasets = dataset.get_dataset(["build"], DATA_DIR)
     build_dataset = datasets["build"]
-    train_set, val_set = torch.utils.data.random_split(build_dataset, [len(build_dataset) - params.val, params.val])
-
-    train_sampler = dataset.BucketSampler([route.num_stops for route in train_set], batch_size=params.batch_size, shuffle=True)
-    val_sampler = dataset.BucketSampler([route.num_stops for route in val_set], batch_size=params.batch_size, shuffle=True)
-    
     collate_fn = dataset.get_collate_fn(stage="build", params=params)
-    train_loader = dataset.DataLoader(train_set, batch_sampler=train_sampler, collate_fn=collate_fn)
-    val_loader = dataset.DataLoader(val_set, batch_sampler=val_sampler, collate_fn=collate_fn)
+    train_sampler = dataset.BucketSampler([route.num_stops for route in build_dataset], batch_size=params.batch_size, shuffle=True)
+    train_loader = dataset.DataLoader(build_dataset, batch_sampler=train_sampler, collate_fn=collate_fn)
    
     logging.info("- done.")
 
@@ -267,7 +262,6 @@ if __name__ == '__main__':
         params = params,
         model_dir = OUTPUT_DIR,
         train_dataloader = train_loader,
-        val_dataloader = val_loader,
     )
 
     logging.info(f"Done")
