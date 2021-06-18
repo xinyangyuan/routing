@@ -1,3 +1,4 @@
+import logging
 import os, json
 import multiprocessing
 import typing
@@ -8,6 +9,7 @@ import numpy as np
 
 import model.dataset as dataset
 import model.search as search
+import utils
 
 # Set number of working cpu threads    
 # https://jdhao.github.io/2020/07/06/pytorch_set_num_threads/
@@ -18,6 +20,7 @@ os.environ['MKL_NUM_THREADS'] = str(multiprocessing.cpu_count())
 
 # Directory
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUTPUT_DIR = os.path.join(BASE_DIR, "data/model_apply_outputs")
 MODEL_PATH = os.path.join(BASE_DIR, 'data/model_build_outputs/best.script.pth')
 OUTPUT_PATH = os.path.join(BASE_DIR, "data/model_apply_outputs/proposed_sequences.json")
 
@@ -66,25 +69,25 @@ def main():
     """Model Apply"""
 
     # Load Model
-    print('Load Model...')
+    logging.info('Load Model...')
 
     model = torch.jit.load(MODEL_PATH)
 
     # Load Input Data
-    print('Reading Input Data...')
+    logging.info('Reading Input Data...')
 
     datasets = dataset.get_dataset(["apply"], os.path.join(BASE_DIR, 'data'))
     apply_dataset = datasets["apply"]
     collate_fn = dataset.get_collate_fn(stage="apply", params=None)
     dataloader = dataset.DataLoader(apply_dataset, batch_size=1, collate_fn=collate_fn)
 
-    print("Apply dataset created.")
+    logging.info("Apply dataset created.")
 
     # Model Apply Output
     tasks : typing.List[search.Task]= []
 
     # Loop through apply datasets
-    print("Runing model inference...")
+    logging.info("Runing model inference...")
 
     for batch in dataloader:
 
@@ -110,25 +113,30 @@ def main():
             output=output.squeeze(0).detach().numpy()
         ))
     
-    print("Model inference completed.")
+    logging.info("Model inference completed.")
 
     # Run or-search
-    print("Running sequence search...")
+    logging.info("Running sequence search...")
 
     sequences = {}
     with concurrent.futures.ProcessPoolExecutor() as executor:
         for route_id, output_dict in executor.map(solve, tasks):
             sequences[route_id] = {'proposed': output_dict}
     
-    print("Sequence search completed.")
+    logging.info("Sequence search completed.")
 
     # Save to json
     with open(OUTPUT_PATH, "w") as file:
         json.dump(sequences, file)
     
-    print(f"Sequence saved to file: {OUTPUT_PATH}")
+    logging.info(f"Sequence saved to file: {OUTPUT_PATH}")
 
 
 if __name__ == "__main__":
+
+    # Set the logger
+    utils.set_logger(os.path.join(OUTPUT_DIR, 'apply.log'))
+
+    # RUn model apply
     main()
-    print("Done!")
+    logging.info("Done!")
