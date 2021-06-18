@@ -181,6 +181,27 @@ def load_checkpoint(checkpoint, model, optimizer=None):
 
     return checkpoint
 
+def save_torchscript(model, is_best, model_dir):
+    """Saves model and training parameters at checkpoint + 'last.pth.tar'. If is_best==True, also saves
+    checkpoint + 'best.pth.tar'
+    Args:
+        model: (nn.Module) contains model's state_dict, may contain other keys such as epoch, optimizer state_dict
+        is_best: (bool) True if it is the best model seen till now
+        model_dir: (string) folder where torchscript will be saved
+    """
+
+    filepath = os.path.join(model_dir, 'last.script.pth')
+
+    model.eval()
+
+    model_script = torch.jit.script(model)
+
+    model_script.save(filepath)
+    
+    if is_best:
+        shutil.copyfile(filepath, os.path.join(model_dir, 'best.script.pth'))
+
+
 if __name__ == '__main__':
     # for i in range(10):
     #     epoch_counter = Counter('epoch')

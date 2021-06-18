@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from torch.types import Number
 
 from model.layer import InputFusion, SelfAttention, Mixer, Router, RouterV4, RouterV5
 
@@ -229,7 +228,7 @@ class RouteNetV5(nn.Module):
         out = nn.functional.log_softmax(out, dim=-1)
         return out
 
-def accuracy(outputs, targets) -> Number:
+def accuracy(outputs, targets) -> float:
     """
     Compute the accuracy, given the outputs and targets for all images.
     Args:
@@ -243,7 +242,7 @@ def accuracy(outputs, targets) -> Number:
 
     return (torch.sum(preds == targets).float() / len(targets)).item()
 
-def accuracy_tok_k(outputs:torch.Tensor, targets:torch.Tensor, topk:int=5) -> Number:
+def accuracy_tok_k(outputs:torch.Tensor, targets:torch.Tensor, topk:int=5) -> float:
     """Computes the accuracy over the k top predictions for the specified values of k"""
     
     """

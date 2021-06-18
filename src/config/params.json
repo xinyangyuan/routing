@@ -1,0 +1,18 @@
+{
+    "learning_rate": 1e-3,
+    "batch_size": 2,
+    "num_epochs": 1,
+    
+    "dropout_rate":0.1, 
+    "num_routers": 3,
+    "router_embbed_dim": 128,
+    "num_heads": 8,
+    "num_groups": 8,
+    "contraction_factor": 2,
+    "max_norm": 0.5,
+    
+    "train": -1,
+    "val": 160,
+    "save_summary_steps": 1000,
+    "ignore_index": -100
+}
