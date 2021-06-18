@@ -15,3 +15,7 @@ logs
 
 # dotenv environment variables file
 # **/.env
+
+# Folders
+notebooks/
+experiments/
