@@ -1,4 +1,4 @@
-.PHONY: data-wget data-cli data-2000 tensorboard jupyter-notebook jupyter-lab run score
+.PHONY: data-wget data-cli data-2000 tensorboard jupyter-notebook jupyter-lab run apply score
 
 ifneq ($(shell which rc-cli), )
 data: data-cli
@@ -34,7 +34,10 @@ jupyter-lab:
 	jupyter lab --ip=0.0.0.0 --port=7777 --NotebookApp.token='xyj1!' --no-browser &
 
 run:
-	python  src/train.py --model_dir experiments/base_model
+	python src/train.py --model_dir experiments/base_model
+
+apply:
+	python src/model_apply_experiments.py
 
 score:
 	python src/score.py

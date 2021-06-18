@@ -232,10 +232,10 @@ def or_search(df_dist, station_no, max_time, total_stops):
 
     # Setting first solution heuristic.
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
-    search_parameters.time_limit.seconds = 3
+    search_parameters.time_limit.seconds = 50
     search_parameters.log_search = False
     search_parameters.local_search_metaheuristic = (
-        routing_enums_pb2.LocalSearchMetaheuristic.SIMULATED_ANNEALING)
+        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
     search_parameters.first_solution_strategy = (
         routing_enums_pb2.FirstSolutionStrategy.GLOBAL_CHEAPEST_ARC)
 
