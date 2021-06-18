@@ -64,6 +64,29 @@ class RunningAverage():
         
         return self.total/float(self.steps)
 
+
+class MovingAverage():
+    """A simple class that maintains the running exponential average of a quantity
+    
+    Example:
+    ```
+    loss_avg = MovingAverage()
+    loss_avg.update(2)
+    loss_avg.update(4)
+    loss_avg() = 3
+    ```
+    """
+    def __init__(self, beta=0.95):
+        self.beta = beta
+        self.value = 0
+    
+    def update(self, val: float):
+        self.value = self.beta * self.value + (1 - self.beta) * val
+    
+    def __call__(self) -> float:
+        return float(self.value)
+
+
 class Counter():
     """A simple class that maintains a global counter (start from 1)
     

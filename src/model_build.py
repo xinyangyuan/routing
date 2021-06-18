@@ -18,24 +18,24 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 OUTPUT_DIR = os.path.join(BASE_DIR, "data/model_build_outputs")
 PARAMS_PATH = os.path.join(BASE_DIR, 'src/config/params.json')
 
+# Global stats tracker
+best_accuracy = 0.0
+loss_moving_avg = utils.MovingAverage()
+acc_moving_avg = utils.MovingAverage()
 
-def train_loop(model, optimizer, scheduler, criterion, metrics, params, model_dir, train_dataloader, val_dataloader=None, save_file=True):
+
+def train_loop(model, optimizer, scheduler, criterion, metrics, params, model_dir, train_dataloader):
     
     """Train the model.
     Args:
         model: (torch.nn.Module) the neural network
         train_dataloader: (DataLoader) a torch.utils.data.DataLoader object that fetches training data
-        val_dataloader: (DataLoader) optional - a torch.utils.data.DataLoader object that fetches validation data
         optimizer: (torch.optim) optimizer for parameters of model
         criterion: a function that takes batch_output and batch_labels and computes the loss for the batch
         metrics: (dict) a dictionary of functions that compute a metric using the output and labels of each batch
         params: (Params) hyperparameters
         model_dir: (string) directory containing config, weights and log
-        restore_file: (string) optional - name of file to restore from (without its extension .pth.tar)
-        save_file: (bool) optional - boolean flag to save file
     """
-
-    best_val_acc = 0.0
 
     for epoch in range(params.num_epochs):
         # Logging
@@ -44,40 +44,32 @@ def train_loop(model, optimizer, scheduler, criterion, metrics, params, model_di
         # Train for one epoch (one full pass over the training set)
         train_metrics = train(model, optimizer, scheduler, criterion, train_dataloader, metrics, params)
 
-        # Evaluate for one epoch on validation set
-        if val_dataloader is not None:
-            # validation set metrics
-            val_metrics = evaluate(model, criterion, val_dataloader, metrics, params)
-            val_acc = val_metrics['accuracy']
-            is_best = val_acc >= best_val_acc
+        # Evaluate for  one epoch on exponential moving average
+        accuracy = acc_moving_avg()
+        is_best = accuracy >= best_accuracy
 
-        else:
-            train_acc = train_metrics['accuracy']
-            is_best = train_acc >= best_val_acc
-        
-        # Save latest val metrics in a json file in the model directory
-        metrics_to_save = val_metrics if val_dataloader is not None else train_metrics
-        metrics_type = "val" if val_dataloader is not None else "train"
+        metrics_to_save = train_metrics
+        metrics_type = "train"
 
+        # Save most recent metrics
         last_json_path = os.path.join(model_dir, f"metrics_{metrics_type}_last_weights.json")
         utils.save_dict_to_json(metrics_to_save, last_json_path)
 
-        # If best_eval, best_save_path
+        # Update best metrics
         if is_best:
             logging.info("- Found new best accuracy")
-            best_val_acc = val_acc if val_dataloader is not None else train_acc
+            best_accuracy = accuracy
 
             # Save best val metrics in a json file in the model directory
             best_json_path = os.path.join(model_dir, f"metrics_{metrics_type}_best_weights.json")
             utils.save_dict_to_json(metrics_to_save, best_json_path)
 
-        # Save weights
-        if save_file:
-            utils.save_torchscript(
-                model=model,
-                is_best=is_best,
-                model_dir=OUTPUT_DIR
-            )
+        # Save model
+        utils.save_torchscript(
+            model=model,
+            is_best=is_best,
+            model_dir=OUTPUT_DIR
+        )
 
 
 def train(model, optimizer, scheduler, criterion, dataloader, metrics, params):
@@ -119,7 +111,6 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, params):
             loss = criterion(
                 outputs.reshape(-1, outputs.shape[2]), 
                 targets.reshape(-1), 
-                inputs[:,:,:,-4].masked_fill(masks == 0, float("1e20")).reshape(-1, outputs.shape[2])
             )
 
             # Backward pass
@@ -136,15 +127,43 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, params):
             scheduler.step()
 
             # Evaluate summaries only once in a while
-            if i % params.save_summary_steps == 0:
-
-                # compute all metrics on this batch
-                summary = {metric: metrics[metric](outputs, targets) for metric in metrics}
-                summary['loss'] = loss.item()
-                summ.append(summary)
+            summary = {metric: metrics[metric](outputs, targets) for metric in metrics}
+            summary['loss'] = loss.item()
+            summ.append(summary)
 
             # Update the average loss
-            loss_avg.update(loss.item())
+            loss_avg.update(summary['loss'])
+            loss_moving_avg.update(summary['loss'])
+            acc_moving_avg.update(summary['accuracy'])
+
+            # Save model
+            if i % (len(dataloader)//6) == 0:
+                accuracy = acc_moving_avg()
+                is_best = accuracy >= best_accuracy
+
+                metrics_to_save = {metric: np.mean([x[metric] for x in summ]) for metric in summ[0]}
+                metrics_type = "train"
+
+                # Save most recent metrics
+                last_json_path = os.path.join(OUTPUT_DIR, f"metrics_{metrics_type}_last_weights.json")
+                utils.save_dict_to_json(metrics_to_save, last_json_path)
+
+                # Update best metrics
+                if is_best:
+                    logging.info("- Found new best accuracy")
+                    best_accuracy = accuracy
+
+                    # Save best val metrics in a json file in the model directory
+                    best_json_path = os.path.join(OUTPUT_DIR, f"metrics_{metrics_type}_best_weights.json")
+                    utils.save_dict_to_json(metrics_to_save, best_json_path)
+
+                # Save model
+                utils.save_torchscript(
+                    model=model,
+                    is_best=is_best,
+                    model_dir=OUTPUT_DIR
+                )
+                
 
             # Update tqdm
             t.set_postfix(loss='{:05.3f}'.format(loss_avg()))
@@ -155,56 +174,6 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, params):
     metrics_string = " ; ".join("{}: {:05.3f}".format(k, v) for k, v in metrics_mean.items())
     logging.info("- Train metrics: " + metrics_string)
 
-    # Scheduler step (epoch-wise scheduler, e.g., reduceOnPlateou)
-    # scheduler.step(loss_avg())
-
-    return metrics_mean
-
-def evaluate(model, criterion, dataloader, metrics, params):
-    """Evaluate the model on `num_steps` batches.
-    Args:
-        model: (torch.nn.Module) the neural network
-        criterion: a function that takes batch_output and batch_labels and computes the loss for the batch
-        dataloader: (DataLoader) a torch.utils.data.DataLoader object that fetches data
-        metrics: (dict) a dictionary of functions that compute a metric using the output and labels of each batch
-        params: (Params) hyperparameters
-        num_steps: (int) number of batches to train on, each of size params.batch_size
-    Returns:
-        metrics_mean: (dict) of float-castable validation-metric values (np.float, int, float, etc.)
-    """
-
-    # set model to evaluation mode
-    model.eval()
-
-    # summary for current eval loop
-    summ = []
-
-    # compute metrics over the dataset
-    for batch in dataloader:
-
-        # Unpack batch, optionally get to cuda
-        inputs = batch['inputs']        # (batch_m, max_num_stops, max_num_stops, num_1d_features + num_2d_features)
-        input_0ds = batch['input_0ds']  # (batch_m, num_0d_features)
-        targets = batch['targets']      # (batch_m, max_num_stops)
-        masks = batch['masks']          # (batch_m, max_num_stops, max_num_stops)
-
-        # Compute model output
-        outputs = model(inputs, input_0ds, masks) # (batch_m, max_num_stops, max_num_stops)
-        loss = criterion(
-            outputs.reshape(-1, outputs.shape[2]), 
-            targets.reshape(-1), 
-            inputs[:,:,:,-4].masked_fill(masks == 0, float("1e20")).reshape(-1, outputs.shape[2])
-        )
-
-        # compute all metrics on this batch
-        summary = {metric: metrics[metric](outputs, targets) for metric in metrics}
-        summary['loss'] = loss.item()
-        summ.append(summary)
-
-    # compute mean of all metrics in summary
-    metrics_mean = {metric: np.mean([x[metric] for x in summ]) for metric in summ[0]}
-    metrics_string = " ; ".join("{}: {:05.3f}".format(k, v) for k, v in metrics_mean.items())
-    logging.info("- Eval metrics : " + metrics_string)
     return metrics_mean
 
 
@@ -298,3 +267,4 @@ if __name__ == '__main__':
         val_dataloader = val_loader,
     )
 
+    logging.info(f"Done")
