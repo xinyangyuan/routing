@@ -18,13 +18,8 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 OUTPUT_DIR = os.path.join(BASE_DIR, "data/model_build_outputs")
 PARAMS_PATH = os.path.join(BASE_DIR, 'src/config/params.json')
 
-# Global stats tracker
-best_accuracy = 0.0
-loss_moving_avg = utils.MovingAverage()
-acc_moving_avg = utils.MovingAverage()
 
-
-def train_loop(model, optimizer, scheduler, criterion, metrics, params, model_dir, train_dataloader):
+def train_loop(model, optimizer, scheduler, criterion, metrics, params, model_dir, train_dataloader, stats:dict):
     
     """Train the model.
     Args:
@@ -42,11 +37,11 @@ def train_loop(model, optimizer, scheduler, criterion, metrics, params, model_di
         logging.info(f"Epoch {epoch + 1}/{params.num_epochs}")
 
         # Train for one epoch (one full pass over the training set)
-        train_metrics = train(model, optimizer, scheduler, criterion, train_dataloader, metrics, params)
+        train_metrics = train(model, optimizer, scheduler, criterion, train_dataloader, metrics, params, stats)
 
         # Evaluate for  one epoch on exponential moving average
-        accuracy = acc_moving_avg()
-        is_best = accuracy >= best_accuracy
+        accuracy = stats['acc_moving_avg']()
+        is_best = accuracy >= stats['best_accuracy']
 
         metrics_to_save = train_metrics
         metrics_type = "train"
@@ -58,7 +53,7 @@ def train_loop(model, optimizer, scheduler, criterion, metrics, params, model_di
         # Update best metrics
         if is_best:
             logging.info("- Found new best accuracy")
-            best_accuracy = accuracy
+            stats['best_accuracy'] = accuracy
 
             # Save best val metrics in a json file in the model directory
             best_json_path = os.path.join(model_dir, f"metrics_{metrics_type}_best_weights.json")
@@ -72,7 +67,7 @@ def train_loop(model, optimizer, scheduler, criterion, metrics, params, model_di
         )
 
 
-def train(model, optimizer, scheduler, criterion, dataloader, metrics, params):
+def train(model, optimizer, scheduler, criterion, dataloader, metrics, params, stats:dict):
     """Train the model for one epoch (num_steps in batch model on `num_steps` batches)
     Args:
         model: (torch.nn.Module) the neural network
@@ -133,13 +128,13 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, params):
 
             # Update the average loss
             loss_avg.update(summary['loss'])
-            loss_moving_avg.update(summary['loss'])
-            acc_moving_avg.update(summary['accuracy'])
+            stats['loss_moving_avg'].update(summary['loss'])
+            stats['acc_moving_avg'].update(summary['accuracy'])
 
             # Save model
             if i % (len(dataloader)//6) == 0:
-                accuracy = acc_moving_avg()
-                is_best = accuracy >= best_accuracy
+                accuracy = stats['acc_moving_avg']()
+                is_best = accuracy >= stats['best_accuracy']
 
                 metrics_to_save = {metric: np.mean([x[metric] for x in summ]) for metric in summ[0]}
                 metrics_string = " ; ".join("{}: {:05.3f}".format(k, v) for k, v in metrics_to_save.items())
@@ -154,7 +149,7 @@ def train(model, optimizer, scheduler, criterion, dataloader, metrics, params):
                 # Update best metrics
                 if is_best:
                     logging.info("- Found new best accuracy")
-                    best_accuracy = accuracy
+                    stats['best_accuracy'] = accuracy
 
                     # Save best val metrics in a json file in the model directory
                     best_json_path = os.path.join(OUTPUT_DIR, f"metrics_{metrics_type}_best_weights.json")
@@ -250,6 +245,12 @@ if __name__ == '__main__':
 
     # Train the model
     logging.info(f"Starting training for {params.num_epochs} epoch(s)")
+
+    stats = {
+        'best_accuracy' : 0.0,
+        'loss_moving_avg' : utils.MovingAverage(),
+        'acc_moving_avg' : utils.MovingAverage(),
+    }
     
     train_loop(
         model = model,
@@ -260,6 +261,7 @@ if __name__ == '__main__':
         params = params,
         model_dir = OUTPUT_DIR,
         train_dataloader = train_loader,
+        stats=stats
     )
 
     logging.info(f"Done")
