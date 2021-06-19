@@ -38,9 +38,9 @@ def solve(task: search.Task):
 
     # Search problem initialization
     start_node = stop_ids.index(station_id)
-    df_time = np.mean(input[:,:,-4].numpy(),axis=1) # TODO
-    df_prob = (-output/10)**3*5 # top 1                TODO
-    df_dist = (np.multiply(df_time,df_prob))         # TODO
+    df_time = np.mean(input,axis=1) 
+    df_prob = (-output/10)**2*3               
+    df_dist = (np.multiply(df_time,df_prob))         
     total_stops = len(df_dist)
     
     # Sequence
@@ -112,12 +112,12 @@ def main():
             stop_ids=stop_ids,
             station_id=station_id,
             num_stops=num_stops,
-            input=inputs.squeeze(0).detach().numpy(),
+            input=inputs.squeeze(0).detach().numpy()[:,:,-4],
             output=output.squeeze(0).detach().numpy()
         ))
 
         # run tasks
-        if i % 16 == 0:
+        if (i != 0) and (i % 16 == 0):
             logging.info(f"Running sequence search - {i} routes completed")
 
             # run or-search
