@@ -191,9 +191,7 @@ if __name__ == '__main__':
     # Set default ignore_index
     if "ignore_index" not in params.dict:
         params.ignore_index = -100
-    
-    # Seed everything
-    torch.manual_seed(230)
+
 
     # Set number of working threads
     # https://jdhao.github.io/2020/07/06/pytorch_set_num_threads/

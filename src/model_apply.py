@@ -68,6 +68,9 @@ def solve(task: search.Task):
 def main():
     """Model Apply"""
 
+    # Final output sequences
+    sequences = {}
+
     # Load Model
     logging.info('Load Model...')
 
@@ -89,7 +92,7 @@ def main():
     # Loop through apply datasets
     logging.info("Runing model inference...")
 
-    for batch in dataloader:
+    for i, batch in enumerate(dataloader):
 
         # load batch data
         inputs = batch['inputs']              # (n, max_num_stops, max_num_stops, num_1d_features + num_2d_features)
@@ -112,18 +115,32 @@ def main():
             input=inputs.squeeze(0).detach().numpy(),
             output=output.squeeze(0).detach().numpy()
         ))
+
+        # run tasks
+        if i % 16 == 0:
+            logging.info(f"Running sequence search - {i} routes completed")
+
+            # run or-search
+            with concurrent.futures.ProcessPoolExecutor() as executor:
+                for route_id, output_dict in executor.map(solve, tasks):
+                    sequences[route_id] = {'proposed': output_dict}
+            
+            # reset tasks
+            tasks : typing.List[search.Task]= []
+
+            logging.info(f"{i} routes sequence search completed")
+
     
     logging.info("Model inference completed.")
 
-    # Run or-search
-    logging.info("Running sequence search...")
+    # Run final or-search
+    logging.info("Running final sequence search...")
 
-    sequences = {}
     with concurrent.futures.ProcessPoolExecutor() as executor:
         for route_id, output_dict in executor.map(solve, tasks):
             sequences[route_id] = {'proposed': output_dict}
     
-    logging.info("Sequence search completed.")
+    logging.info("Sequences search all completed.")
 
     # Save to json
     with open(OUTPUT_PATH, "w") as file:
