@@ -39,7 +39,7 @@ def solve(task: search.Task):
     # Search problem initialization
     start_node = stop_ids.index(station_id)
     df_time = np.mean(input,axis=1) 
-    df_prob = (-output/10)**2*3               
+    df_prob = (-output/10)**2*8               
     df_dist = (np.multiply(df_time,df_prob))         
     total_stops = len(df_dist)
     
